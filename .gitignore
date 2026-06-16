@@ -11,6 +11,11 @@
 /build
 /app/build
 /captures
+
+# Release signing - NEVER commit keystores or their passwords.
+keystore.properties
+*.jks
+*.keystore
 .externalNativeBuild
 .cxx
 local.properties
