@@ -24,7 +24,13 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build with Gradle
+    - name: Unit tests
+      run: ./gradlew testDebugUnitTest
+
+    - name: Lint
+      run: ./gradlew lintDebug
+
+    - name: Build debug APK
       run: ./gradlew assembleDebug
 
     - name: Upload APK
@@ -32,3 +38,13 @@ jobs:
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Upload test & lint reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: reports
+        path: |
+          app/build/reports/tests/
+          app/build/reports/lint-results-debug.html
+        if-no-files-found: ignore

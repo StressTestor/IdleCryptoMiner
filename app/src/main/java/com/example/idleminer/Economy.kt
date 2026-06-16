@@ -1,0 +1,119 @@
+package com.example.idleminer
+
+import java.math.BigDecimal
+import java.math.MathContext
+import java.math.RoundingMode
+
+/**
+ * Precision-safe money type for the whole economy.
+ *
+ * An idle game with a compounding prestige multiplier blows past Double's
+ * exact-integer range (~9e15) and silently loses precision in the economy math
+ * itself, not just the displayed suffix. BigDecimal keeps every balance exact
+ * within [MC]'s significant digits, at sizes far beyond what any player reaches.
+ * All of this is pure (no Android, no clocks) so it is unit-tested on the JVM.
+ */
+typealias Big = BigDecimal
+
+/** 20 significant digits is plenty for display + gameplay and bounds the size. */
+internal val MC: MathContext = MathContext(20, RoundingMode.HALF_UP)
+
+fun big(v: Long): Big = BigDecimal.valueOf(v)
+fun big(v: String): Big = BigDecimal(v)
+
+/** Default boost multiplier (the "overclock"). */
+const val BOOST_MULTIPLIER: Long = 2L
+
+/** Offline earnings are capped so a long absence (or a forward clock) can't mint forever. */
+const val OFFLINE_CAP_SECONDS: Long = 8L * 60 * 60 // 8 hours
+
+data class Upgrade(
+    val id: String,
+    val name: String,
+    val baseCost: Big,
+    val baseRate: Big,
+    val count: Int = 0,
+) {
+    /** Cost of the NEXT unit: baseCost * COST_GROWTH^count. */
+    val currentCost: Big get() = baseCost.multiply(COST_GROWTH.pow(count, MC), MC)
+
+    /** Hash/sec contributed by all owned units of this tier. */
+    val currentRate: Big get() = baseRate.multiply(big(count.toLong()), MC)
+
+    companion object {
+        val COST_GROWTH: Big = BigDecimal("1.15")
+    }
+}
+
+/** Total passive hash/sec across all upgrades. */
+fun passiveRate(upgrades: List<Upgrade>): Big =
+    upgrades.fold(BigDecimal.ZERO) { acc, u -> acc.add(u.currentRate, MC) }
+
+/**
+ * Hash gained over [elapsedSec] seconds at [ratePerSec], where [boostedSec] of
+ * those seconds were under an active boost giving [boostMultiplier]x.
+ *
+ * Pure: the caller measures elapsed and boosted seconds from clocks and passes
+ * them in. boostedSec is clamped into [0, elapsedSec] so a caller can't
+ * over-credit. Non-positive elapsed or rate yields zero.
+ */
+fun accrue(
+    ratePerSec: Big,
+    elapsedSec: Long,
+    boostedSec: Long,
+    boostMultiplier: Long = BOOST_MULTIPLIER,
+): Big {
+    if (elapsedSec <= 0L || ratePerSec.signum() <= 0) return BigDecimal.ZERO
+    val clampedBoost = boostedSec.coerceIn(0L, elapsedSec)
+    val effectiveSeconds = elapsedSec + clampedBoost * (boostMultiplier - 1)
+    return ratePerSec.multiply(big(effectiveSeconds), MC)
+}
+
+/**
+ * Offline hash credited for being away [awaySec] real seconds. A non-positive
+ * delta (clock moved back, or no time passed) credits nothing; the rest is
+ * capped at [OFFLINE_CAP_SECONDS] before any boost overlap is applied.
+ */
+fun offlineEarnings(ratePerSec: Big, awaySec: Long, boostedSec: Long): Big {
+    if (awaySec <= 0L) return BigDecimal.ZERO
+    val capped = awaySec.coerceAtMost(OFFLINE_CAP_SECONDS)
+    return accrue(ratePerSec, capped, boostedSec.coerceAtMost(capped))
+}
+
+/**
+ * Seconds of the window [windowStartMs, windowEndMs] that overlap an active
+ * boost ending at [boostEndMs]. The boost is assumed to run up to boostEndMs;
+ * any part of the window at or before boostEndMs is boosted. Returns whole
+ * seconds, never negative.
+ */
+fun boostedSecondsIn(windowStartMs: Long, windowEndMs: Long, boostEndMs: Long): Long {
+    val overlapEnd = minOf(windowEndMs, boostEndMs)
+    if (overlapEnd <= windowStartMs) return 0L
+    return (overlapEnd - windowStartMs) / 1000L
+}
+
+private val SUFFIXES = listOf(
+    "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc",
+)
+
+/**
+ * Compact number formatting that survives well past billions: integer below
+ * 1000, then K/M/B/T/Qa... suffixes up to Dc (1e33), then scientific (1.23e40).
+ * Works on the precision-safe [Big] type, not Double.
+ */
+fun formatBig(value: Big): String {
+    if (value.signum() <= 0) return "0"
+    if (value.compareTo(BigDecimal(1000)) < 0) {
+        return value.setScale(0, RoundingMode.FLOOR).toBigInteger().toString()
+    }
+    // Integer-part digit count, valid for value >= 1 even when scale is negative.
+    val intDigits = value.precision() - value.scale()
+    val group = (intDigits - 1) / 3
+    if (group < SUFFIXES.size) {
+        val mantissa = value.movePointLeft(group * 3).setScale(2, RoundingMode.FLOOR)
+        return "${mantissa.toPlainString()}${SUFFIXES[group]}"
+    }
+    val exp = intDigits - 1
+    val mantissa = value.movePointLeft(exp).setScale(2, RoundingMode.FLOOR)
+    return "${mantissa.toPlainString()}e$exp"
+}

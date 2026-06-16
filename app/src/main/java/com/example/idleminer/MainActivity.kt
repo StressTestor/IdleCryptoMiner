@@ -28,7 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels()
@@ -79,11 +78,11 @@ fun GameScreen(viewModel: GameViewModel, adManager: AdManager, activity: Compone
     val boostEndTime by viewModel.boostEndTime.collectAsStateWithLifecycle()
     val offlineEarnings by viewModel.offlineEarnings.collectAsStateWithLifecycle()
 
-    if (offlineEarnings > 0) {
+    if (offlineEarnings.signum() > 0) {
         AlertDialog(
             onDismissRequest = { viewModel.clearOfflineEarnings() },
             title = { Text("OFFLINE EARNINGS") },
-            text = { Text("You mined ${offlineEarnings.format()} Hash while offline.") },
+            text = { Text("You mined ${formatBig(offlineEarnings)} Hash while offline.") },
             confirmButton = {
                 Button(
                     onClick = { viewModel.clearOfflineEarnings() },
@@ -107,15 +106,15 @@ fun GameScreen(viewModel: GameViewModel, adManager: AdManager, activity: Compone
     ) {
         // Header
         Text(
-            text = "${hash.format()} HASH",
+            text = "${formatBig(hash)} HASH",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
             color = NeonGreen
         )
-        
-        val passiveRate = upgrades.sumOf { it.currentRate }
+
+        val rate = passiveRate(upgrades)
         Text(
-            text = "+${passiveRate.format()}/sec",
+            text = "+${formatBig(rate)}/sec",
             fontSize = 16.sp,
             color = Color.Gray
         )
@@ -249,21 +248,14 @@ fun UpgradeItem(upgrade: Upgrade, canAfford: Boolean, onBuy: () -> Unit) {
     ) {
         Column {
             Text(upgrade.name, color = Color.White, fontWeight = FontWeight.Bold)
-            Text("+${upgrade.baseRate}/sec", color = Color.Gray, fontSize = 12.sp)
+            Text("+${formatBig(upgrade.baseRate)}/sec", color = Color.Gray, fontSize = 12.sp)
             Text("Owned: ${upgrade.count}", color = NeonGreen, fontSize = 12.sp)
         }
-        
+
         Text(
-            text = upgrade.currentCost.format(),
+            text = formatBig(upgrade.currentCost),
             color = if (canAfford) NeonGreen else ErrorRed,
             fontWeight = FontWeight.Bold
         )
     }
-}
-
-fun Double.format(): String {
-    if (this >= 1_000_000_000) return String.format(Locale.US, "%.2fB", this / 1_000_000_000)
-    if (this >= 1_000_000) return String.format(Locale.US, "%.2fM", this / 1_000_000)
-    if (this >= 1_000) return String.format(Locale.US, "%.2fK", this / 1_000)
-    return String.format(Locale.US, "%.0f", this)
 }
