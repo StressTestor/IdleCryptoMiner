@@ -1,0 +1,21 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+# Android app built with the Gradle wrapper (./gradlew). Two host requirements,
+# set inline so scripts don't depend on interactive shell startup:
+#   - JDK 17: the system default JDK is too new to run Gradle 8.9 / AGP 8.7.
+#   - ANDROID_HOME: SDK location, with platform 35 + build-tools 35 installed
+#     (see docs/RELEASE.md). Defaults to the macOS Android Studio location.
+
+[scripts]
+# Warm the Gradle/dependency cache and verify the fresh workspace actually builds.
+setup = 'export JAVA_HOME="$(/usr/libexec/java_home -v 17)"; export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"; chmod +x gradlew && ./gradlew assembleDebug'
+
+# Build, install, and launch the debug app on a connected device/emulator.
+run = 'export JAVA_HOME="$(/usr/libexec/java_home -v 17)"; export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"; ./gradlew installDebug && "$ANDROID_HOME/platform-tools/adb" shell am start -n io.github.stresstestor.idlecryptominer/com.example.idleminer.MainActivity'
+
+# One attached device + one applicationId is a shared resource - only one
+# workspace should install/launch at a time.
+run_mode = "nonconcurrent"
+
+# Free this machine's Gradle daemons on archive (they restart on demand).
+archive = 'export JAVA_HOME="$(/usr/libexec/java_home -v 17)"; ./gradlew --stop || true'
