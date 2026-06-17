@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -25,7 +26,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -84,10 +90,19 @@ fun GameScreen(viewModel: GameViewModel) {
     val offlineEarnings by viewModel.offlineEarnings.collectAsStateWithLifecycle()
     val prestigeCoins by viewModel.prestigeCoins.collectAsStateWithLifecycle()
     val runEarned by viewModel.runEarned.collectAsStateWithLifecycle()
+    val muted by viewModel.muted.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
     val pendingCores = prestigeCoinsFor(runEarned)
     val multiplier = prestigeMultiplier(prestigeCoins)
     var showPrestigeDialog by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    var showResetConfirm by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val sound = remember { SoundManager(context) }
+    DisposableEffect(Unit) { onDispose { sound.release() } }
+    sound.muted = muted
 
     val haptic = LocalHapticFeedback.current
     // Drives the boost countdown so it ticks once a second instead of freezing.
@@ -97,6 +112,84 @@ fun GameScreen(viewModel: GameViewModel) {
             now = System.currentTimeMillis()
             delay(1000)
         }
+    }
+
+    if (isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(DarkBackground),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(color = NeonGreen)
+        }
+        return
+    }
+
+    if (showSettings) {
+        val version = remember {
+            runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
+                .getOrNull() ?: "1.0"
+        }
+        AlertDialog(
+            onDismissRequest = { showSettings = false },
+            title = { Text("SETTINGS") },
+            text = {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text("Sound", color = Color.White)
+                        Switch(checked = !muted, onCheckedChange = { viewModel.setMuted(!it) })
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { showSettings = false; showResetConfirm = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed, contentColor = Color.White),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("RESET PROGRESS") }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Idle Crypto Miner v$version", color = Color.Gray, fontSize = 12.sp)
+                    Text(
+                        "Simulation game. Not real cryptocurrency mining or money.",
+                        color = Color.Gray,
+                        fontSize = 11.sp,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showSettings = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonGreen, contentColor = Color.Black),
+                ) { Text("CLOSE") }
+            },
+            containerColor = Color(0xFF101010),
+            titleContentColor = NeonGreen,
+            textContentColor = Color.White,
+        )
+    }
+
+    if (showResetConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            title = { Text("RESET PROGRESS") },
+            text = { Text("This wipes all hash, hardware, and prestige cores. This cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.resetProgress(); showResetConfirm = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed, contentColor = Color.White),
+                ) { Text("RESET") }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showResetConfirm = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray, contentColor = NeonGreen),
+                ) { Text("CANCEL") }
+            },
+            containerColor = Color(0xFF101010),
+            titleContentColor = NeonGreen,
+            textContentColor = Color.White,
+        )
     }
 
     if (showPrestigeDialog) {
@@ -114,7 +207,7 @@ fun GameScreen(viewModel: GameViewModel) {
             },
             confirmButton = {
                 Button(
-                    onClick = { viewModel.prestige(); showPrestigeDialog = false },
+                    onClick = { viewModel.prestige(); sound.fork(); showPrestigeDialog = false },
                     colors = ButtonDefaults.buttonColors(containerColor = NeonGreen, contentColor = Color.Black)
                 ) { Text("FORK") }
             },
@@ -186,6 +279,7 @@ fun GameScreen(viewModel: GameViewModel) {
         // Clicker (Fan)
         FanButton(onClick = {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            sound.tap()
             viewModel.onManualMine()
         })
 
@@ -251,9 +345,16 @@ fun GameScreen(viewModel: GameViewModel) {
         ) {
             upgrades.forEach { upgrade ->
                 UpgradeItem(upgrade = upgrade, canAfford = hash >= upgrade.currentCost) {
+                    sound.buy()
                     viewModel.buyUpgrade(upgrade.id)
                 }
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TextButton(onClick = { showSettings = true }) {
+            Text("SETTINGS", color = Color.Gray)
         }
     }
 }
@@ -280,9 +381,14 @@ fun FanButton(onClick: () -> Unit) {
         modifier = Modifier
             .size(200.dp)
             .scale(scale)
+            .semantics {
+                contentDescription = "Mine hash"
+                role = Role.Button
+            }
             .clickable(
                 interactionSource = interactionSource,
-                indication = null
+                indication = null,
+                onClickLabel = "mine",
             ) {
                 onClick()
                 isSpinning = true
@@ -328,8 +434,14 @@ fun UpgradeItem(upgrade: Upgrade, canAfford: Boolean, onBuy: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .alpha(if (canAfford) 1f else 0.45f) // non-color affordability cue
             .background(Color(0xFF101010), RoundedCornerShape(8.dp))
             .clickable(enabled = canAfford, onClick = onBuy)
+            .semantics {
+                contentDescription = "${upgrade.name}, " +
+                    (if (canAfford) "affordable" else "locked") +
+                    ", cost ${formatBig(upgrade.currentCost)}, owned ${upgrade.count}"
+            }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween

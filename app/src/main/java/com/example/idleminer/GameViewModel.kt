@@ -3,6 +3,7 @@ package com.example.idleminer
 import android.app.Application
 import android.content.Context
 import android.os.SystemClock
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -56,6 +57,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _prestigeCoins = MutableStateFlow(0L)
     val prestigeCoins: StateFlow<Long> = _prestigeCoins.asStateFlow()
 
+    /** Sound muted (settings). */
+    private val _muted = MutableStateFlow(false)
+    val muted: StateFlow<Boolean> = _muted.asStateFlow()
+
+    /** True until the initial save load completes (drives a loading state). */
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
     private val dataStore = application.dataStore
 
     private val VERSION_KEY = intPreferencesKey("save_version")
@@ -65,6 +74,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val BOOST_END_KEY = longPreferencesKey("boost_end")
     private val RUN_EARNED_KEY = stringPreferencesKey("run_earned")
     private val PRESTIGE_COINS_KEY = longPreferencesKey("prestige_coins")
+    private val MUTE_KEY = booleanPreferencesKey("muted")
 
     // In-session accrual is anchored to the monotonic clock so loop drift and
     // wall-clock changes can't mis-credit passive income.
@@ -102,6 +112,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             _hash.value = save.hash
             _runEarned.value = save.runEarned
             _prestigeCoins.value = save.prestigeCoins
+            _muted.value = prefs[MUTE_KEY] ?: false
             _upgrades.value = GameCatalog.withCounts(save.counts)
 
             val nowWall = System.currentTimeMillis()
@@ -131,6 +142,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
             lastCreditedElapsed = nowElapsed
             lastSaveElapsed = nowElapsed
+            _isLoading.value = false
             startGameLoop()
         }
     }
@@ -209,6 +221,39 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearOfflineEarnings() {
         _offlineEarnings.value = BigDecimal.ZERO
+    }
+
+    fun setMuted(value: Boolean) {
+        _muted.value = value
+        viewModelScope.launch {
+            runCatching { dataStore.edit { it[MUTE_KEY] = value } }
+        }
+    }
+
+    /**
+     * Wipe all game progress back to a fresh start. Uses DataStore clear() so no
+     * stale key can survive into a half-reset (the corrupt-state class M1 guards),
+     * then re-writes only the sound preference.
+     */
+    fun resetProgress() {
+        val keepMuted = _muted.value
+        _hash.value = BigDecimal.ZERO
+        _runEarned.value = BigDecimal.ZERO
+        _prestigeCoins.value = 0L
+        _upgrades.value = GameCatalog.withCounts(emptyMap())
+        _boostEndTime.value = 0L
+        boostEndElapsed = 0L
+        _offlineEarnings.value = BigDecimal.ZERO
+        lastCreditedElapsed = SystemClock.elapsedRealtime()
+        lastSaveElapsed = SystemClock.elapsedRealtime()
+        viewModelScope.launch {
+            runCatching {
+                dataStore.edit { prefs ->
+                    prefs.clear()
+                    prefs[MUTE_KEY] = keepMuted
+                }
+            }
+        }
     }
 
     fun saveGame() {

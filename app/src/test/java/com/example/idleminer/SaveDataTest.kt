@@ -84,4 +84,20 @@ class SaveDataTest {
         val old = SaveData(version = 999)
         assertEquals(SAVE_VERSION, migrate(old).version)
     }
+
+    @Test fun fresh_save_defaults_are_empty() {
+        // The clean state a reset must produce - no value carried over.
+        val s = SaveData()
+        assertEquals(SAVE_VERSION, s.version)
+        assertTrue(BigDecimal.ZERO.compareTo(s.hash) == 0)
+        assertTrue(BigDecimal.ZERO.compareTo(s.runEarned) == 0)
+        assertEquals(emptyMap<String, Int>(), s.counts)
+        assertEquals(0L, s.lastSaveWallMs)
+        assertEquals(0L, s.boostEndWallMs)
+        assertEquals(0L, s.prestigeCoins)
+    }
+
+    @Test fun load_with_all_null_is_fresh_defaults() {
+        assertEquals(SaveData(), loadSave(null, null, null, null, null, null, null))
+    }
 }
