@@ -3,101 +3,140 @@
 ## overview
 
 IdleCryptoMiner is a single-screen Android idle/clicker game. you tap a GPU fan to
-mine "hash", spend hash on hardware upgrades that mine passively, and watch a
-2x "overclock" boost gate behind a (currently fake) interstitial ad. progress
-persists locally and accrues offline earnings while the app is closed.
+mine "hash", spend hash on 8 tiers of hardware that mine passively, trigger a free
+cooldown-gated 2x "overclock" boost, and "hard fork" (prestige) for a permanent
+global multiplier. progress persists locally and accrues capped offline earnings
+while the app is closed.
 
-single Gradle module (`:app`), no backend, no network. all state lives on-device
-in DataStore.
+single Gradle module (`:app`), no backend, no network, fully offline. all state
+lives on-device in DataStore. ad-free in v1 (the `AdManager` seam is kept for v1.1).
 
 ## stack
 
 | layer | choice | version |
 |-------|--------|---------|
-| language | Kotlin | 1.9.0 |
-| ui | Jetpack Compose (Material 3) | compose-bom 2023.08.00 |
-| compose compiler | kotlinCompilerExtensionVersion | 1.5.1 |
-| build | Android Gradle Plugin | 8.1.0 |
-| build | Gradle (wrapper) | 8.2 |
+| language | Kotlin | 2.0.21 (Compose compiler plugin) |
+| ui | Jetpack Compose (Material 3) | compose-bom 2024.09.03 |
+| build | Android Gradle Plugin | 8.7.3 |
+| build | Gradle (wrapper) | 8.9 |
 | state | Kotlin coroutines + StateFlow | - |
-| persistence | AndroidX DataStore (preferences) | 1.0.0 |
-| min / target / compile SDK | 24 / 34 / 34 | - |
+| persistence | AndroidX DataStore (preferences) | 1.1.1 |
+| money type | java.math.BigDecimal (MathContext 20) | - |
+| audio | android.media.SoundPool | - |
+| min / target / compile SDK | 24 / 35 / 35 | - |
 | ci jdk | Temurin 17 | - |
 
 ## directory tree
 
 ```
 .
-├── build.gradle.kts            # root: declares AGP + Kotlin plugins (apply false)
-├── settings.gradle.kts         # repos + includes :app, rootProject "IdleCryptoMiner"
-├── gradle.properties           # android.useAndroidX, nonTransitiveRClass, jvmargs
-├── gradlew / gradlew.bat       # gradle wrapper scripts
-├── gradle/wrapper/             # wrapper jar + properties (pins gradle 8.2)
+├── build.gradle.kts            # root: AGP + Kotlin + Compose-compiler plugins (apply false)
+├── settings.gradle.kts         # repos + includes :app
+├── gradle.properties           # androidx, nonTransitiveRClass, VERSION_CODE/NAME
+├── gradlew / gradle/wrapper/   # gradle 8.9 wrapper
+├── keystore.properties         # local release signing (gitignored, optional)
+├── .conductor/settings.toml    # Conductor workspace setup/run/archive scripts
 ├── .github/workflows/
-│   ├── android.yml             # build: assembleDebug + upload APK artifact
+│   ├── android.yml             # PR/push: unit tests + lint + assembleDebug (pinned SHAs)
+│   ├── release.yml             # tag v*: signed bundleRelease + mapping.txt upload
 │   └── pr-steward.yml          # codex AI PR review/merge automation (reusable wf)
+├── docs/
+│   ├── RELEASE.md              # keystore custody + signing
+│   └── LAUNCH_CHECKLIST.md     # human-gated Play Store steps
+├── store-assets/               # 512 store icon (listing asset, not in APK)
 └── app/
-    ├── build.gradle.kts        # android config + dependencies
-    └── src/main/
-        ├── AndroidManifest.xml
-        ├── res/values/strings.xml
-        └── java/com/example/idleminer/
-            ├── MainActivity.kt # all UI: theme, game screen, fan clicker, shop
-            ├── GameViewModel.kt# game logic, loop, persistence, offline earnings
-            └── AdManager.kt    # interstitial ad interface (stubbed impl)
+    ├── proguard-rules.pro      # R8 keeps (minify + resource shrink on release)
+    ├── build.gradle.kts        # android config, signing, deps
+    └── src/
+        ├── main/
+        │   ├── AndroidManifest.xml   # app-owned theme, icon, allowBackup=false, no INTERNET
+        │   ├── res/
+        │   │   ├── values/           # strings, colors, themes
+        │   │   ├── drawable/         # adaptive-icon vectors
+        │   │   ├── mipmap-*/         # launcher icon (bitmaps + anydpi-v26 adaptive)
+        │   │   └── raw/              # sfx_tap/buy/fork.wav
+        │   └── java/com/example/idleminer/
+        │       ├── IdleMinerApp.kt   # Application: uncaught-exception logger
+        │       ├── MainActivity.kt   # all Compose UI: theme, screen, fan, shop, dialogs, settings
+        │       ├── GameViewModel.kt  # state, loop, persistence, prestige, settings
+        │       ├── Economy.kt        # PURE: Big economy, accrue, prestige, formatBig (tested)
+        │       ├── SaveData.kt       # PURE: versioned crash-proof parse/serialize (tested)
+        │       ├── GameCatalog.kt    # the 8 default tiers (tested for efficiency monotonicity)
+        │       ├── SoundManager.kt   # SoundPool wrapper (mute-aware)
+        │       └── AdManager.kt      # ad seam (unused in v1, kept for v1.1)
+        └── test/java/com/example/idleminer/
+            ├── EconomyTest.kt        # economy/prestige/tap/format (cost, accrue, isqrt...)
+            ├── SaveDataTest.kt       # defensive parse, load, reset/fresh-state
+            └── GameCatalogTest.kt    # tier efficiency strictly increases
 ```
 
 ## key patterns
 
-- **single source of truth**: `GameViewModel` (AndroidViewModel) holds all game
-  state as `MutableStateFlow`s (hash, upgrades, boostEndTime, offlineEarnings),
-  exposed read-only via `asStateFlow()`. the UI collects with
+- **pure core, testable on the JVM**: all economy + save logic lives in
+  `Economy.kt` / `SaveData.kt` / `GameCatalog.kt` with no Android or clock
+  dependencies, so it is unit-tested without instrumentation. the ViewModel is a
+  thin Android shell over it.
+- **precision-safe money**: every balance is `BigDecimal` (`typealias Big`) with a
+  shared `MathContext(20)`. Double would lose precision past ~9e15, which the
+  compounding prestige multiplier blows through.
+- **single source of truth**: `GameViewModel` (AndroidViewModel) exposes all state
+  as read-only `StateFlow`s (hash, upgrades, boostEndTime, offlineEarnings,
+  runEarned, prestigeCoins, muted, isLoading). the UI collects with
   `collectAsStateWithLifecycle`.
-- **game loop**: a `viewModelScope` coroutine ticks every 1000ms, adding passive
-  hash rate (x2 while boosted). manual taps add 1 hash per tap.
-- **upgrade economy**: cost scales `baseCost * 1.15^count`; rate is `baseRate * count`.
-  three upgrades: GTX 1050, RTX 4090, ASIC Miner.
-- **persistence**: DataStore preferences. upgrades serialized as `"id:count,id:count"`.
-  saved on buy, onPause, onCleared. offline earnings computed on launch from
-  `last_save` timestamp delta (ignored under 10s).
-- **ads**: `AdManager` is an interface; `AdManagerImpl` is a placeholder that logs
-  and waits 1s instead of showing a real ad. swap this for a real SDK (AdMob etc.)
-  to monetize.
+- **monotonic accrual**: the loop credits passive income by measured
+  `SystemClock.elapsedRealtime()` elapsed (immune to loop drift and clock
+  changes), carrying the sub-second remainder. offline earnings use wall-clock
+  delta, capped at 8h, ignoring backward clock jumps, boost-overlap aware.
+- **prestige loop**: cores = `floor(sqrt(runEarned / 1e6))`; each core = +10% to
+  all production permanently; `prestige()` banks cores and wipes the run.
+- **persistence**: DataStore preferences, versioned + crash-proof load (a
+  corrupt/legacy save can't crash the app). debounced save (~20s) in the loop +
+  on buy/boost/pause/clear. `resetProgress()` uses `clear()` so no key survives.
+- **boost**: free, cooldown-gated (5 min active, 5 min cooldown), state derived
+  from the persisted `boost_end` timestamp; a per-second UI ticker drives the
+  countdown.
 
 ## persistence schema (DataStore)
 
 | key | type | meaning |
 |-----|------|---------|
-| `hash` | Double | current hash balance |
-| `upgrades` | String | `"gpu1:3,gpu2:1,asic:0"` style id:count pairs |
-| `last_save` | Long | epoch millis of last save, used for offline earnings |
+| `save_version` | Int | save format version (migrate hook) |
+| `hash` | String | current hash balance (BigDecimal) |
+| `upgrades` | String | `"cpu:3,gpu1:1,..."` id:count pairs |
+| `last_save` | Long | epoch millis of last save (offline earnings) |
+| `boost_end` | Long | epoch millis the overclock boost ends |
+| `run_earned` | String | hash earned since last prestige (BigDecimal) |
+| `prestige_coins` | Long | owned prestige cores |
+| `muted` | Boolean | sound setting |
 
 ## ci
 
-`.github/workflows/android.yml` on push/PR to main|master: checkout, JDK 17,
-`./gradlew assembleDebug`, upload `app-debug.apk` as artifact.
-`.github/workflows/pr-steward.yml` runs a reusable Codex PR-review workflow on PRs
-(needs the `CODEX_ACCESS_TOKEN` secret).
+- `android.yml` (PR/push to main|master): JDK 17, `testDebugUnitTest` + `lintDebug`
+  + `assembleDebug`, uploads APK + reports. fails the build on any test/lint
+  failure. actions pinned to commit SHAs.
+- `release.yml` (tag `v*` / manual): decodes the upload keystore from secrets,
+  `bundleRelease`, uploads the signed `.aab` + `mapping.txt`. tag-only so fork PRs
+  never see the signing secrets.
+- `pr-steward.yml`: reusable Codex PR-review workflow (needs `CODEX_ACCESS_TOKEN`).
 
 ## gotchas
 
 | problem | cause | fix |
 |---------|-------|-----|
-| CI failed in seconds on every push | no gradle wrapper committed; `./gradlew` didn't exist | committed wrapper (8.2) |
-| build fails: "useAndroidX not enabled" | no `gradle.properties` despite all-AndroidX deps | added `android.useAndroidX=true` |
-| `collectAsStateWithLifecycle` unresolved | `lifecycle-runtime-compose` dep missing | added the dependency |
-| canvas `rotate(degrees, pivot){}` unresolved | only `Modifier.rotate` imported, not the DrawScope one | imported `androidx.compose.ui.graphics.drawscope.rotate` |
-| `app/build/` showing up in git | `.gitignore` only ignored root `/build` | added `/app/build` |
+| `applicationId` vs `namespace` | only `applicationId` (`io.github.stresstestor.idlecryptominer`) is Play-facing/permanent; `namespace`/package stay `com.example.idleminer` | changed applicationId only, no source rename |
+| minify needs keep rules | `proguard-rules.pro` is inert unless minify is on | minify + resource shrink + real proguard rules all on for release |
+| nested scroll crash | a `LazyColumn` inside a `verticalScroll` Column throws | shop is a plain `Column` (only 8 items) |
+| content under system bars | targetSdk 35 forces edge-to-edge | `enableEdgeToEdge()` + `windowInsetsPadding(systemBars)` |
+| local JDK | Gradle 8.9 / AGP 8.7 don't run on the newest JDKs | build with JDK 17 (`/usr/libexec/java_home -v 17`) |
 
 ## local build
 
-needs JDK 17 to run Gradle 8.2 (newer JDKs can't run AGP 8.1's gradle), plus the
-Android SDK (platform 34, build-tools 34.0.0).
+needs JDK 17 + the Android SDK (platform 35, build-tools 35.0.0).
 
 ```
-export JAVA_HOME=<path to jdk 17>
-export ANDROID_HOME=<path to android sdk>   # or set sdk.dir in local.properties
-./gradlew assembleDebug                       # -> app/build/outputs/apk/debug/app-debug.apk
+export JAVA_HOME="$(/usr/libexec/java_home -v 17)"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+./gradlew assembleDebug      # -> app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ## commands
@@ -105,9 +144,14 @@ export ANDROID_HOME=<path to android sdk>   # or set sdk.dir in local.properties
 | task | command |
 |------|---------|
 | debug build | `./gradlew assembleDebug` |
+| unit tests | `./gradlew testDebugUnitTest` |
+| lint | `./gradlew lintDebug` |
+| signed release bundle | `./gradlew bundleRelease` (needs the keystore, see docs/RELEASE.md) |
 | install on device | `./gradlew installDebug` |
-| lint | `./gradlew lint` |
 | clean | `./gradlew clean` |
 
+see `docs/RELEASE.md` for signing and `docs/LAUNCH_CHECKLIST.md` for the Play
+Store steps.
+
 ---
-last updated: 2026-06-16
+last updated: 2026-06-17
