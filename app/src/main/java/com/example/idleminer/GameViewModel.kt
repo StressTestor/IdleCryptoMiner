@@ -25,6 +25,9 @@ val Context.dataStore by preferencesDataStore(name = "game_settings")
 /** Overclock boost lasts 5 minutes. */
 const val BOOST_DURATION_MS: Long = 300_000L
 
+/** Cooldown after a boost ENDS before it can be triggered again. */
+const val BOOST_COOLDOWN_MS: Long = 300_000L
+
 /** How often the loop persists state, so a hard kill loses at most this much. */
 private const val SAVE_INTERVAL_MS: Long = 20_000L
 
@@ -178,7 +181,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Start the overclock boost, unless one is active or still on cooldown. */
     fun activateBoost() {
+        // boostEndTime + cooldown covers both the active window and the cooldown.
+        if (System.currentTimeMillis() < _boostEndTime.value + BOOST_COOLDOWN_MS) return
         _boostEndTime.value = System.currentTimeMillis() + BOOST_DURATION_MS
         boostEndElapsed = SystemClock.elapsedRealtime() + BOOST_DURATION_MS
         saveGame()
