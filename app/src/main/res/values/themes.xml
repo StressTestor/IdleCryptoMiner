@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      App-owned theme replacing the bare platform Theme.Material.NoActionBar.
+      The UI is Jetpack Compose, so this theme only controls the window before
+      Compose draws: no action bar, a dark window background (kills the white
+      first-frame flash), and transparent system bars for edge-to-edge, which
+      the activity enables with enableEdgeToEdge().
+    -->
+    <style name="Theme.IdleCryptoMiner" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/dark_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>
