@@ -17,7 +17,10 @@ data class SaveData(
     val counts: Map<String, Int> = emptyMap(),
     val lastSaveWallMs: Long = 0L,
     val boostEndWallMs: Long = 0L,
-    val lifetimeHash: Big = BigDecimal.ZERO,
+    /** Hash earned since the last prestige - the basis for the next prestige reward. */
+    val runEarned: Big = BigDecimal.ZERO,
+    /** Owned prestige cores (permanent across prestiges). */
+    val prestigeCoins: Long = 0L,
 )
 
 /**
@@ -56,7 +59,8 @@ fun loadSave(
     upgradesRaw: String?,
     lastSaveWallMs: Long?,
     boostEndWallMs: Long?,
-    lifetimeHashRaw: String?,
+    runEarnedRaw: String?,
+    prestigeCoins: Long?,
 ): SaveData {
     val raw = SaveData(
         version = version ?: SAVE_VERSION,
@@ -64,7 +68,8 @@ fun loadSave(
         counts = parseUpgradeCounts(upgradesRaw),
         lastSaveWallMs = (lastSaveWallMs ?: 0L).coerceAtLeast(0L),
         boostEndWallMs = (boostEndWallMs ?: 0L).coerceAtLeast(0L),
-        lifetimeHash = parseBig(lifetimeHashRaw),
+        runEarned = parseBig(runEarnedRaw),
+        prestigeCoins = (prestigeCoins ?: 0L).coerceAtLeast(0L),
     )
     return migrate(raw)
 }
