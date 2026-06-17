@@ -45,9 +45,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _offlineEarnings = MutableStateFlow(BigDecimal.ZERO as Big)
     val offlineEarnings: StateFlow<Big> = _offlineEarnings.asStateFlow()
 
-    /** Lifetime hash earned, never spent - the basis for prestige (M2). */
-    private val _lifetimeHash = MutableStateFlow(BigDecimal.ZERO as Big)
-    val lifetimeHash: StateFlow<Big> = _lifetimeHash.asStateFlow()
+    /** Hash earned since the last prestige - basis for the next prestige reward. */
+    private val _runEarned = MutableStateFlow(BigDecimal.ZERO as Big)
+    val runEarned: StateFlow<Big> = _runEarned.asStateFlow()
+
+    /** Owned prestige cores (permanent across prestiges). */
+    private val _prestigeCoins = MutableStateFlow(0L)
+    val prestigeCoins: StateFlow<Long> = _prestigeCoins.asStateFlow()
 
     private val dataStore = application.dataStore
 
@@ -56,7 +60,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val UPGRADES_KEY = stringPreferencesKey("upgrades") // "id:count,id:count"
     private val LAST_SAVE_KEY = longPreferencesKey("last_save")
     private val BOOST_END_KEY = longPreferencesKey("boost_end")
-    private val LIFETIME_KEY = stringPreferencesKey("lifetime_hash")
+    private val RUN_EARNED_KEY = stringPreferencesKey("run_earned")
+    private val PRESTIGE_COINS_KEY = longPreferencesKey("prestige_coins")
 
     // In-session accrual is anchored to the monotonic clock so loop drift and
     // wall-clock changes can't mis-credit passive income.
@@ -68,6 +73,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     init {
         initializeGame()
     }
+
+    private fun prestigeMult(): Big = prestigeMultiplier(_prestigeCoins.value)
+
+    /** Passive hash/sec including the global prestige multiplier. */
+    private fun effectiveRate(): Big = passiveRate(_upgrades.value).multiply(prestigeMult(), MC)
 
     private fun initializeGame() {
         viewModelScope.launch {
@@ -82,11 +92,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 upgradesRaw = prefs[UPGRADES_KEY],
                 lastSaveWallMs = prefs[LAST_SAVE_KEY],
                 boostEndWallMs = prefs[BOOST_END_KEY],
-                lifetimeHashRaw = prefs[LIFETIME_KEY],
+                runEarnedRaw = prefs[RUN_EARNED_KEY],
+                prestigeCoins = prefs[PRESTIGE_COINS_KEY],
             )
 
             _hash.value = save.hash
-            _lifetimeHash.value = save.lifetimeHash
+            _runEarned.value = save.runEarned
+            _prestigeCoins.value = save.prestigeCoins
             _upgrades.value = GameCatalog.withCounts(save.counts)
 
             val nowWall = System.currentTimeMillis()
@@ -99,14 +111,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             // Offline earnings: capped, ignores a backward clock, accounts for any
-            // boost window that overlapped the absence.
+            // boost window that overlapped the absence, includes prestige multiplier.
             if (save.lastSaveWallMs > 0L) {
                 val awaySec = (nowWall - save.lastSaveWallMs) / 1000L
                 val boostedOfflineSec = boostedSecondsIn(
                     save.lastSaveWallMs, nowWall, save.boostEndWallMs,
                 )
-                val rate = passiveRate(_upgrades.value)
-                val earned = offlineEarnings(rate, awaySec, boostedOfflineSec)
+                val earned = offlineEarnings(effectiveRate(), awaySec, boostedOfflineSec)
                 if (earned.signum() > 0) {
                     addHash(earned)
                     if (awaySec >= OFFLINE_DIALOG_MIN_SECONDS) {
@@ -131,7 +142,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     val windowStart = lastCreditedElapsed
                     val windowEnd = windowStart + elapsedSec * 1000L
                     val boostedSec = boostedSecondsIn(windowStart, windowEnd, boostEndElapsed)
-                    val gained = accrue(passiveRate(_upgrades.value), elapsedSec, boostedSec)
+                    val gained = accrue(effectiveRate(), elapsedSec, boostedSec)
                     if (gained.signum() > 0) addHash(gained)
                     lastCreditedElapsed = windowEnd // carry the sub-second remainder
                 }
@@ -145,13 +156,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun addHash(amount: Big) {
         _hash.value = _hash.value.add(amount, MC)
-        _lifetimeHash.value = _lifetimeHash.value.add(amount, MC)
+        _runEarned.value = _runEarned.value.add(amount, MC)
     }
 
     fun onManualMine() {
         val boosted = SystemClock.elapsedRealtime() < boostEndElapsed
-        val gain = if (boosted) big(BOOST_MULTIPLIER) else big(1L)
-        addHash(gain)
+        addHash(tapValue(passiveRate(_upgrades.value), prestigeMult(), boosted))
     }
 
     fun buyUpgrade(upgradeId: String) {
@@ -174,13 +184,31 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         saveGame()
     }
 
+    /**
+     * Hard-fork: bank the prestige cores this run has earned, then wipe hash,
+     * upgrades and the boost. The permanent prestige multiplier (from owned
+     * cores) makes the next run faster. No-op if no full core is available yet.
+     */
+    fun prestige() {
+        val gained = prestigeCoinsFor(_runEarned.value)
+        if (gained <= 0L) return
+        _prestigeCoins.value += gained
+        _hash.value = BigDecimal.ZERO
+        _runEarned.value = BigDecimal.ZERO
+        _upgrades.value = GameCatalog.withCounts(emptyMap())
+        _boostEndTime.value = 0L
+        boostEndElapsed = 0L
+        saveGame()
+    }
+
     fun clearOfflineEarnings() {
         _offlineEarnings.value = BigDecimal.ZERO
     }
 
     fun saveGame() {
         val hash = _hash.value
-        val lifetime = _lifetimeHash.value
+        val runEarned = _runEarned.value
+        val coins = _prestigeCoins.value
         val counts = _upgrades.value.associate { it.id to it.count }
         val boostEnd = _boostEndTime.value
         viewModelScope.launch {
@@ -191,7 +219,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     prefs[UPGRADES_KEY] = serializeUpgradeCounts(counts)
                     prefs[LAST_SAVE_KEY] = System.currentTimeMillis()
                     prefs[BOOST_END_KEY] = boostEnd
-                    prefs[LIFETIME_KEY] = lifetime.toPlainString()
+                    prefs[RUN_EARNED_KEY] = runEarned.toPlainString()
+                    prefs[PRESTIGE_COINS_KEY] = coins
                 }
             }
         }

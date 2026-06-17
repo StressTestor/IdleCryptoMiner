@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.math.BigDecimal
+import java.math.BigInteger
 
 private fun assertBig(expected: String, actual: Big, msg: String = "") =
     assertTrue("$msg expected=$expected actual=${actual.toPlainString()}",
@@ -93,5 +94,39 @@ class EconomyTest {
     @Test fun format_falls_back_to_scientific_past_table() {
         // 1e36 is past the Dc (1e33) suffix -> scientific
         assertEquals("1.00e36", formatBig(BigDecimal.ONE.movePointRight(36)))
+    }
+
+    @Test fun isqrt_floors_correctly() {
+        assertEquals(BigInteger.ZERO, isqrt(BigInteger.ZERO))
+        assertEquals(BigInteger.ONE, isqrt(BigInteger.ONE))
+        assertEquals(BigInteger.valueOf(3), isqrt(BigInteger.valueOf(15)))
+        assertEquals(BigInteger.valueOf(4), isqrt(BigInteger.valueOf(16)))
+        assertEquals(BigInteger.valueOf(1_000_000_000L), isqrt(BigInteger.valueOf(1_000_000_000_000_000_000L)))
+    }
+
+    @Test fun prestige_cores_need_the_threshold() {
+        assertEquals(0L, prestigeCoinsFor(big("999999")))   // below 1e6
+        assertEquals(1L, prestigeCoinsFor(big("1000000")))  // exactly 1e6 -> 1
+        assertEquals(1L, prestigeCoinsFor(big("3999999")))  // sqrt(3.99) floors to 1
+        assertEquals(2L, prestigeCoinsFor(big("4000000")))  // sqrt(4) -> 2
+        assertEquals(10L, prestigeCoinsFor(big("100000000"))) // sqrt(100) -> 10
+    }
+
+    @Test fun prestige_multiplier_grows_per_core() {
+        assertBig("1", prestigeMultiplier(0))
+        assertBig("1.1", prestigeMultiplier(1))
+        assertBig("2", prestigeMultiplier(10))
+    }
+
+    @Test fun tap_value_scales_and_respects_multipliers() {
+        // floor of value is 1 when there's no passive income
+        assertBig("1", tapValue(BigDecimal.ZERO, prestigeMultiplier(0), boosted = false))
+        // 10% of a 100/sec rate
+        assertBig("10", tapValue(big("100"), prestigeMultiplier(0), boosted = false))
+        // prestige multiplier applies (10 cores -> x2)
+        assertBig("20", tapValue(big("100"), prestigeMultiplier(10), boosted = false))
+        // boost doubles on top
+        assertBig("20", tapValue(big("100"), prestigeMultiplier(0), boosted = true))
+        assertBig("40", tapValue(big("100"), prestigeMultiplier(10), boosted = true))
     }
 }

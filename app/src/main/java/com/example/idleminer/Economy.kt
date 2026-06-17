@@ -1,6 +1,7 @@
 package com.example.idleminer
 
 import java.math.BigDecimal
+import java.math.BigInteger
 import java.math.MathContext
 import java.math.RoundingMode
 
@@ -26,6 +27,15 @@ const val BOOST_MULTIPLIER: Long = 2L
 
 /** Offline earnings are capped so a long absence (or a forward clock) can't mint forever. */
 const val OFFLINE_CAP_SECONDS: Long = 8L * 60 * 60 // 8 hours
+
+/** Lifetime-hash (this run) needed before a prestige yields its first core. */
+const val PRESTIGE_THRESHOLD: String = "1000000" // 1e6
+
+/** Each prestige core grants +10% to all hash production, permanently. */
+val COIN_BONUS: Big = BigDecimal("0.10")
+
+/** A manual tap is worth max(1, this fraction of the per-second passive rate). */
+val TAP_FRACTION: Big = BigDecimal("0.10")
 
 data class Upgrade(
     val id: String,
@@ -90,6 +100,46 @@ fun boostedSecondsIn(windowStartMs: Long, windowEndMs: Long, boostEndMs: Long): 
     val overlapEnd = minOf(windowEndMs, boostEndMs)
     if (overlapEnd <= windowStartMs) return 0L
     return (overlapEnd - windowStartMs) / 1000L
+}
+
+/** Integer floor of the square root of a non-negative [BigInteger] (Newton's method). */
+fun isqrt(n: BigInteger): BigInteger {
+    require(n.signum() >= 0) { "isqrt of negative" }
+    if (n.signum() == 0) return BigInteger.ZERO
+    var x = BigInteger.ONE.shiftLeft((n.bitLength() + 1) / 2)
+    while (true) {
+        val y = (x + n / x).shiftRight(1)
+        if (y >= x) return x
+        x = y
+    }
+}
+
+/**
+ * Prestige cores granted for [totalEarned] hash earned this run:
+ * floor(sqrt(totalEarned / PRESTIGE_THRESHOLD)). Below the threshold, zero.
+ * sqrt growth means later cores cost progressively more, so prestige stays a
+ * deliberate decision rather than spammable.
+ */
+fun prestigeCoinsFor(totalEarned: Big): Long {
+    val threshold = big(PRESTIGE_THRESHOLD)
+    if (totalEarned.compareTo(threshold) < 0) return 0L
+    val ratio = totalEarned.divide(threshold, 0, RoundingMode.FLOOR).toBigInteger()
+    return isqrt(ratio).min(BigInteger.valueOf(Long.MAX_VALUE)).toLong()
+}
+
+/** Global production multiplier from owned prestige [coins]: 1 + coins * COIN_BONUS. */
+fun prestigeMultiplier(coins: Long): Big =
+    BigDecimal.ONE.add(big(coins).multiply(COIN_BONUS, MC), MC)
+
+/**
+ * Value of one manual tap: max(1, TAP_FRACTION * passiveRate), then the prestige
+ * multiplier, then doubled while boosted. Keeps tapping relevant at every stage
+ * instead of a flat +1 forever.
+ */
+fun tapValue(passiveRate: Big, prestigeMult: Big, boosted: Boolean): Big {
+    val base = BigDecimal.ONE.max(passiveRate.multiply(TAP_FRACTION, MC))
+    val withPrestige = base.multiply(prestigeMult, MC)
+    return if (boosted) withPrestige.multiply(big(BOOST_MULTIPLIER), MC) else withPrestige
 }
 
 private val SUFFIXES = listOf(

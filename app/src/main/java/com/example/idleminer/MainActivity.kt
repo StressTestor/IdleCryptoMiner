@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
 val NeonGreen = Color(0xFF00FF00)
 val DarkBackground = Color(0xFF050505)
 val ErrorRed = Color(0xFFFF0000)
+val ForkCyan = Color(0xFF00BFFF)
 
 @Composable
 fun IdleMinerTheme(content: @Composable () -> Unit) {
@@ -77,6 +78,43 @@ fun GameScreen(viewModel: GameViewModel, adManager: AdManager, activity: Compone
     val upgrades by viewModel.upgrades.collectAsStateWithLifecycle()
     val boostEndTime by viewModel.boostEndTime.collectAsStateWithLifecycle()
     val offlineEarnings by viewModel.offlineEarnings.collectAsStateWithLifecycle()
+    val prestigeCoins by viewModel.prestigeCoins.collectAsStateWithLifecycle()
+    val runEarned by viewModel.runEarned.collectAsStateWithLifecycle()
+
+    val pendingCores = prestigeCoinsFor(runEarned)
+    val multiplier = prestigeMultiplier(prestigeCoins)
+    var showPrestigeDialog by remember { mutableStateOf(false) }
+
+    if (showPrestigeDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrestigeDialog = false },
+            title = { Text("HARD FORK") },
+            text = {
+                Text(
+                    "Reset hash and hardware to bank $pendingCores core(s).\n\n" +
+                        "Cores are permanent and each adds +10% to all production. " +
+                        "Your multiplier becomes x" +
+                        prestigeMultiplier(prestigeCoins + pendingCores)
+                            .setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() + "."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.prestige(); showPrestigeDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonGreen, contentColor = Color.Black)
+                ) { Text("FORK") }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showPrestigeDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray, contentColor = NeonGreen)
+                ) { Text("CANCEL") }
+            },
+            containerColor = Color(0xFF101010),
+            titleContentColor = NeonGreen,
+            textContentColor = Color.White
+        )
+    }
 
     if (offlineEarnings.signum() > 0) {
         AlertDialog(
@@ -119,6 +157,14 @@ fun GameScreen(viewModel: GameViewModel, adManager: AdManager, activity: Compone
             color = Color.Gray
         )
 
+        if (prestigeCoins > 0) {
+            Text(
+                text = "FORK x${multiplier.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()} ($prestigeCoins cores)",
+                fontSize = 14.sp,
+                color = ForkCyan
+            )
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
 
         // Clicker (Fan)
@@ -150,6 +196,25 @@ fun GameScreen(viewModel: GameViewModel, adManager: AdManager, activity: Compone
             } else {
                 Text("OVERCLOCK (WATCH AD)")
             }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Prestige (Hard Fork)
+        val canFork = pendingCores >= 1
+        Button(
+            onClick = { if (canFork) showPrestigeDialog = true },
+            enabled = canFork,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ForkCyan,
+                contentColor = Color.Black,
+                disabledContainerColor = Color(0xFF202020),
+                disabledContentColor = Color.Gray
+            ),
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(if (canFork) "HARD FORK (+$pendingCores CORES)" else "HARD FORK (LOCKED)")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
