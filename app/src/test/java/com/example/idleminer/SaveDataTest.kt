@@ -45,14 +45,16 @@ class SaveDataTest {
             upgradesRaw = "gpu1:2",
             lastSaveWallMs = 1_000L,
             boostEndWallMs = 2_000L,
-            lifetimeHashRaw = "9999",
+            runEarnedRaw = "9999",
+            prestigeCoins = 5L,
         )
         assertEquals(1, save.version)
         assertTrue(BigDecimal("1234.5").compareTo(save.hash) == 0)
         assertEquals(mapOf("gpu1" to 2), save.counts)
         assertEquals(1_000L, save.lastSaveWallMs)
         assertEquals(2_000L, save.boostEndWallMs)
-        assertTrue(BigDecimal("9999").compareTo(save.lifetimeHash) == 0)
+        assertTrue(BigDecimal("9999").compareTo(save.runEarned) == 0)
+        assertEquals(5L, save.prestigeCoins)
     }
 
     @Test fun load_handles_missing_and_garbage_values() {
@@ -62,13 +64,15 @@ class SaveDataTest {
             upgradesRaw = "garbage-no-colon",
             lastSaveWallMs = -50L,     // negative coerced to 0
             boostEndWallMs = null,
-            lifetimeHashRaw = "??",
+            runEarnedRaw = "??",
+            prestigeCoins = -3L,       // negative coerced to 0
         )
         assertEquals(SAVE_VERSION, save.version)
         assertTrue(BigDecimal.ZERO.compareTo(save.hash) == 0)
         assertEquals(emptyMap<String, Int>(), save.counts)
         assertEquals(0L, save.lastSaveWallMs)
         assertEquals(0L, save.boostEndWallMs)
+        assertEquals(0L, save.prestigeCoins)
     }
 
     @Test fun migrate_is_passthrough_for_current_version() {
