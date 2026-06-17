@@ -3,6 +3,7 @@ package com.example.idleminer
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -10,9 +11,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,21 +24,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val viewModel: GameViewModel by viewModels()
-    private val adManager: AdManager = AdManagerImpl()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             IdleMinerTheme {
-                GameScreen(viewModel, adManager, this)
+                GameScreen(viewModel)
             }
         }
     }
@@ -73,7 +77,7 @@ fun IdleMinerTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun GameScreen(viewModel: GameViewModel, adManager: AdManager, activity: ComponentActivity) {
+fun GameScreen(viewModel: GameViewModel) {
     val hash by viewModel.hash.collectAsStateWithLifecycle()
     val upgrades by viewModel.upgrades.collectAsStateWithLifecycle()
     val boostEndTime by viewModel.boostEndTime.collectAsStateWithLifecycle()
@@ -84,6 +88,16 @@ fun GameScreen(viewModel: GameViewModel, adManager: AdManager, activity: Compone
     val pendingCores = prestigeCoinsFor(runEarned)
     val multiplier = prestigeMultiplier(prestigeCoins)
     var showPrestigeDialog by remember { mutableStateOf(false) }
+
+    val haptic = LocalHapticFeedback.current
+    // Drives the boost countdown so it ticks once a second instead of freezing.
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
 
     if (showPrestigeDialog) {
         AlertDialog(
@@ -139,6 +153,8 @@ fun GameScreen(viewModel: GameViewModel, adManager: AdManager, activity: Compone
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBackground)
+            .windowInsetsPadding(WindowInsets.systemBars)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -168,34 +184,40 @@ fun GameScreen(viewModel: GameViewModel, adManager: AdManager, activity: Compone
         Spacer(modifier = Modifier.height(32.dp))
 
         // Clicker (Fan)
-        FanButton(onClick = { viewModel.onManualMine() })
+        FanButton(onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.onManualMine()
+        })
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Boost Button
-        val timeLeft = (boostEndTime - System.currentTimeMillis()) / 1000
-        val isBoostActive = timeLeft > 0
-        
+        // Overclock: free, cooldown-gated boost (no ad). State derived from now.
+        val boostActiveLeft = (boostEndTime - now) / 1000
+        val cooldownLeft = (boostEndTime + BOOST_COOLDOWN_MS - now) / 1000
+        val isBoostActive = boostActiveLeft > 0
+        val onCooldown = !isBoostActive && cooldownLeft > 0
+
         Button(
             onClick = {
-                if (!isBoostActive) {
-                    adManager.showInterstitial(activity) {
-                        viewModel.activateBoost()
-                    }
-                }
+                if (!isBoostActive && !onCooldown) viewModel.activateBoost()
             },
+            enabled = !isBoostActive && !onCooldown,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isBoostActive) Color.DarkGray else NeonGreen,
-                contentColor = if (isBoostActive) NeonGreen else Color.Black
+                containerColor = NeonGreen,
+                contentColor = Color.Black,
+                disabledContainerColor = Color.DarkGray,
+                disabledContentColor = NeonGreen
             ),
             modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(8.dp)
         ) {
-            if (isBoostActive) {
-                Text("OVERCLOCK ACTIVE: ${timeLeft}s")
-            } else {
-                Text("OVERCLOCK (WATCH AD)")
-            }
+            Text(
+                when {
+                    isBoostActive -> "OVERCLOCK ACTIVE: ${boostActiveLeft}s"
+                    onCooldown -> "COOLDOWN: ${cooldownLeft}s"
+                    else -> "OVERCLOCK (2x FOR 5 MIN)"
+                }
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -223,10 +245,11 @@ fun GameScreen(viewModel: GameViewModel, adManager: AdManager, activity: Compone
         Text("HARDWARE SHOP", fontSize = 20.sp, color = NeonGreen, modifier = Modifier.align(Alignment.Start))
         Spacer(modifier = Modifier.height(8.dp))
         
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            items(upgrades) { upgrade ->
+            upgrades.forEach { upgrade ->
                 UpgradeItem(upgrade = upgrade, canAfford = hash >= upgrade.currentCost) {
                     viewModel.buyUpgrade(upgrade.id)
                 }
