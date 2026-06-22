@@ -232,7 +232,7 @@ final class GameStore: ObservableObject {
         let now = Date()
         guard
             let data = defaults.data(forKey: saveKey),
-            let save = try? JSONDecoder().decode(SaveGame.self, from: data)
+            let loaded = try? JSONDecoder().decode(SaveGame.self, from: data)
         else {
             lastTick = now
             lastAutoSave = now
@@ -240,14 +240,14 @@ final class GameStore: ObservableObject {
             return
         }
 
-        hash = max(save.hash, 0)
-        counts = save.counts.filter { !$0.key.isEmpty && $0.value >= 0 }
-        runEarned = max(save.runEarned, 0)
-        prestigeCores = max(save.prestigeCores, 0)
-        boostEnd = Date(timeIntervalSince1970: save.boostEnd)
-        effectsMuted = save.effectsMuted
+        hash = max(loaded.hash, 0)
+        counts = loaded.counts.filter { !$0.key.isEmpty && $0.value >= 0 }
+        runEarned = max(loaded.runEarned, 0)
+        prestigeCores = max(loaded.prestigeCores, 0)
+        boostEnd = Date(timeIntervalSince1970: loaded.boostEnd)
+        effectsMuted = loaded.effectsMuted
 
-        let lastSave = Date(timeIntervalSince1970: save.lastSave)
+        let lastSave = Date(timeIntervalSince1970: loaded.lastSave)
         let away = max(0, now.timeIntervalSince(lastSave))
         if away > 0 {
             let creditedSeconds = min(away, GameRules.offlineCap)
