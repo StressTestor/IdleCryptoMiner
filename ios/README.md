@@ -86,6 +86,17 @@ on exit. `BUILD_NUMBER` overrides `CURRENT_PROJECT_VERSION` for the archive
 without editing `project.yml`; it defaults to a UTC timestamp. The export uses
 `destination: upload`, so running the script actually uploads, not just exports.
 
+For an API key without cloud-managed distribution certificate access, install an
+Apple Distribution certificate with its private key in the login keychain
+(grant `codesign` access), and install the matching App Store provisioning
+profile in `~/Library/Developer/Xcode/UserData/Provisioning Profiles/`.
+Set `PROVISIONING_PROFILE_SPECIFIER="AI Bubble App Store"` to export with manual
+signing using that profile and the local Apple Distribution identity. Archiving
+still uses automatic signing. Leave this variable unset for the original
+automatic export signing behavior. These local signing assets are not supplied
+by the four API-key secrets and must also be installed on any CI runner using
+manual export signing.
+
 The manual **iOS TestFlight** GitHub Actions workflow uses those same four
 repository secrets and `github.run_number` as its build number. Configure an
 App Store Connect app record and an API key with appropriate upload/signing

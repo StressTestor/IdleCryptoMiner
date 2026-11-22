@@ -38,7 +38,14 @@ EXPORT_OPTIONS="$KEY_DIR/ExportOptions.plist"
 /usr/libexec/PlistBuddy -c 'Clear dict' "$EXPORT_OPTIONS" >/dev/null
 /usr/libexec/PlistBuddy -c 'Add :method string app-store-connect' "$EXPORT_OPTIONS"
 /usr/libexec/PlistBuddy -c 'Add :destination string upload' "$EXPORT_OPTIONS"
-/usr/libexec/PlistBuddy -c 'Add :signingStyle string automatic' "$EXPORT_OPTIONS"
+if [[ -n "${PROVISIONING_PROFILE_SPECIFIER:-}" ]]; then
+  /usr/libexec/PlistBuddy -c 'Add :signingStyle string manual' "$EXPORT_OPTIONS"
+  /usr/libexec/PlistBuddy -c 'Add :signingCertificate string Apple Distribution' "$EXPORT_OPTIONS"
+  /usr/libexec/PlistBuddy -c 'Add :provisioningProfiles dict' "$EXPORT_OPTIONS"
+  /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:io.github.stresstestor.idlecryptominer string $PROVISIONING_PROFILE_SPECIFIER" "$EXPORT_OPTIONS"
+else
+  /usr/libexec/PlistBuddy -c 'Add :signingStyle string automatic' "$EXPORT_OPTIONS"
+fi
 /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "$EXPORT_OPTIONS"
 /usr/libexec/PlistBuddy -c 'Add :manageAppVersionAndBuildNumber bool false' "$EXPORT_OPTIONS"
 
