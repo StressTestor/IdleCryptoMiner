@@ -71,10 +71,26 @@ ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Debug-iphonesimula
 
 Device/TestFlight distribution additionally requires an Apple Developer team,
 signing certificate/private key and provisioning profile (or configured automatic
-signing), plus App Store Connect access and an app record. CI intentionally does
-not attempt a signed device build.
+signing), plus App Store Connect access and an app record. The regular simulator
+CI workflow does not attempt a signed device build.
 
 ## Signed device archive
+
+For automatic signing and a direct TestFlight upload, run
+`bash ios/scripts/testflight.sh` from the repository root on macOS. Set
+`APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_ID`,
+`APP_STORE_CONNECT_API_KEY_P8` (the full private `.p8` contents), and
+`APPLE_TEAM_ID` in the environment; never commit these values. The script
+temporarily writes the private key with owner-only permissions and removes it
+on exit. `BUILD_NUMBER` overrides `CURRENT_PROJECT_VERSION` for the archive
+without editing `project.yml`; it defaults to a UTC timestamp. The export uses
+`destination: upload`, so running the script actually uploads, not just exports.
+
+The manual **iOS TestFlight** GitHub Actions workflow uses those same four
+repository secrets and `github.run_number` as its build number. Configure an
+App Store Connect app record and an API key with appropriate upload/signing
+permissions before dispatching it. Ensure the build number exceeds prior
+uploads (especially after a local timestamp-numbered upload).
 
 After the simulator/device smoke test passes:
 
