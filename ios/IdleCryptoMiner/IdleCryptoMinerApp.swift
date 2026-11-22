@@ -7,6 +7,13 @@ import UIKit
 
 @main
 struct IdleCryptoMinerApp: App {
+    init() {
+        let selector = UISegmentedControl.appearance()
+        selector.setTitleTextAttributes([.foregroundColor: UIColor.green], for: .normal)
+        selector.setTitleTextAttributes([.foregroundColor: UIColor.black], for: .selected)
+        selector.selectedSegmentTintColor = .green
+    }
+
     var body: some Scene {
         WindowGroup {
             GameView()
