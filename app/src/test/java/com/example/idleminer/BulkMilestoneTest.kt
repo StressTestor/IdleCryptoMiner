@@ -29,8 +29,9 @@ class BulkMilestoneTest {
         }
         assertEquals(MilestoneProgress(10, 25, 2), milestoneProgress(12))
         assertEquals(0, nextPrestigeThreshold(big(1000000)).compareTo(big(4000000)))
-        assertTrue(prestigePreview(big(1000000)).contains("Pivot now for +1 VC Billions (+10% production)"))
-        assertTrue(prestigePreview(big(0)).contains("first VC Billion"))
+        assertEquals("Pivot now: +1 VC Billions (+10%)\nNext VC Billion in 3.00M run Tokens", prestigePreview(big(1000000)))
+        assertEquals("1.00M run Tokens to your first VC Billion", prestigePreview(big(0)))
+        assertEquals("1 run Tokens to your first VC Billion", prestigePreview(big(999999)))
     }
 
     @Test fun oldSaveStillLoads() {

@@ -99,9 +99,9 @@ fun nextPrestigeThreshold(earned: Big): Big {
 
 fun prestigePreview(earned: Big): String {
     val coins = prestigeCoinsFor(earned)
-    val first = if (coins > 0) "Pivot now for +$coins VC Billions (+${big(coins).multiply(big(10)).toPlainString()}% production)"
-        else "${formatBig(big(PRESTIGE_THRESHOLD).subtract(earned).max(BigDecimal.ZERO))} Tokens this run needed for the first VC Billion"
-    return "$first\n${formatBig(nextPrestigeThreshold(earned).subtract(earned).max(BigDecimal.ZERO))} Tokens this run needed for the next VC Billion"
+    if (coins == 0L) return "${formatBig(big(PRESTIGE_THRESHOLD).subtract(earned).max(BigDecimal.ZERO))} run Tokens to your first VC Billion"
+    return "Pivot now: +$coins VC Billions (+${big(coins).multiply(big(10)).toPlainString()}%)\n" +
+        "Next VC Billion in ${formatBig(nextPrestigeThreshold(earned).subtract(earned).max(BigDecimal.ZERO))} run Tokens"
 }
 
 /** Total passive hash/sec across all upgrades. */

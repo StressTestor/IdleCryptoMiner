@@ -354,7 +354,8 @@ fun GameScreen(viewModel: GameViewModel) {
                 val quantity = if (bulk == 0) upgrade.maxAffordable(hash) else bulk
                 val cost = upgrade.bulkCost(quantity.coerceAtLeast(1))
                 UpgradeItem(upgrade = upgrade, canAfford = quantity > 0 && hash >= cost, cost = cost,
-                    label = if (bulk == 0) "Max ($quantity) " else "") {
+                    label = if (bulk == 0) (if (quantity > 0) "Max ($quantity) " else "Max ") else "",
+                    maxQuantity = if (bulk == 0) quantity else null) {
                     sound.buy()
                     viewModel.buyUpgrade(upgrade.id, quantity)
                 }
@@ -421,7 +422,8 @@ fun FanButton(onClick: () -> Unit) {
 }
 
 @Composable
-fun UpgradeItem(upgrade: Upgrade, canAfford: Boolean, cost: Big = upgrade.currentCost, label: String = "", onBuy: () -> Unit) {
+fun UpgradeItem(upgrade: Upgrade, canAfford: Boolean, cost: Big = upgrade.currentCost, label: String = "", maxQuantity: Int? = null, onBuy: () -> Unit) {
+    val progress = milestoneProgress(upgrade.count)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -432,7 +434,9 @@ fun UpgradeItem(upgrade: Upgrade, canAfford: Boolean, cost: Big = upgrade.curren
             .semantics {
                 contentDescription = "${upgrade.name}, " +
                     (if (canAfford) "affordable" else "locked") +
-                    ", cost ${formatBig(cost)}, owned ${upgrade.count}"
+                    ", cost ${formatBig(cost)}, owned ${upgrade.count}, " +
+                    (maxQuantity?.let { "Max quantity $it, " } ?: "") +
+                    "${upgrade.count}/${progress.next}, next x${progress.factor}, multiplier x${formatBig(milestoneMultiplier(upgrade.count))}"
             }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -442,7 +446,6 @@ fun UpgradeItem(upgrade: Upgrade, canAfford: Boolean, cost: Big = upgrade.curren
             Text(upgrade.name, color = Color.White, fontWeight = FontWeight.Bold)
             Text("+${formatBig(upgrade.baseRate)} Tokens/sec", color = Color.Gray, fontSize = 12.sp)
             Text("Owned: ${upgrade.count}", color = NeonGreen, fontSize = 12.sp)
-            val progress = milestoneProgress(upgrade.count)
             Text("${upgrade.count}/${progress.next} · next x${progress.factor} · x${formatBig(milestoneMultiplier(upgrade.count))}", color = NeonGreen, fontSize = 12.sp)
             LinearProgressIndicator(progress = { (upgrade.count - progress.previous).toFloat() / (progress.next - progress.previous) }, modifier = Modifier.width(160.dp).testTag("milestone.${upgrade.id}"))
         }

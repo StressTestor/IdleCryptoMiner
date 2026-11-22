@@ -25,8 +25,9 @@ final class EconomyTests: XCTestCase {
         }
         XCTAssertEqual(milestoneProgress(12).next, 25)
         XCTAssertEqual(nextPrestigeThreshold(1000000), 4000000)
-        XCTAssertTrue(prestigePreview(1000000).contains("Pivot now for +1 VC Billions (+10% production)"))
-        XCTAssertTrue(prestigePreview(0).contains("first VC Billion"))
+        XCTAssertEqual(prestigePreview(1000000), "Pivot now: +1 VC Billions (+10%)\nNext VC Billion in 3.00M run Tokens")
+        XCTAssertEqual(prestigePreview(0), "1.00M run Tokens to your first VC Billion")
+        XCTAssertEqual(prestigePreview(999999), "1 run Tokens to your first VC Billion")
     }
 
     @MainActor

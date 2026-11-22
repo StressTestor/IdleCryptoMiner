@@ -510,7 +510,8 @@ struct GameView: View {
                     hardware: hardware,
                     canAfford: quantity > 0 && !cost.isNaN && store.hash >= cost,
                     cost: cost,
-                    buyLabel: bulk == 0 ? "Max (\(quantity)) " : ""
+                    buyLabel: bulk == 0 ? (quantity > 0 ? "Max (\(quantity)) " : "Max ") : "",
+                    maxQuantity: bulk == 0 ? quantity : nil
                 ) {
                     if store.buy(hardware, quantity: quantity) {
                         feedback(.light, muted: store.effectsMuted)
@@ -578,6 +579,7 @@ struct HardwareRow: View {
     let canAfford: Bool
     let cost: Decimal
     let buyLabel: String
+    let maxQuantity: Int?
     let onBuy: () -> Void
 
     var body: some View {
@@ -616,7 +618,8 @@ struct HardwareRow: View {
         }
         .buttonStyle(.plain)
         .disabled(!canAfford)
-        .accessibilityLabel("\(hardware.name), cost \(formatHash(cost)), owned \(hardware.count)")
+        .accessibilityLabel("\(hardware.name), \(maxQuantity.map { "Max quantity \($0), " } ?? "")cost \(formatHash(cost)), owned \(hardware.count)")
+        .accessibilityValue("\(hardware.count)/\(milestoneProgress(hardware.count).next), next x\(milestoneProgress(hardware.count).factor), multiplier x\(formatHash(milestoneMultiplier(hardware.count)))")
         .accessibilityIdentifier("model.\(hardware.id)")
     }
 }
@@ -730,10 +733,11 @@ func nextPrestigeThreshold(_ earned: Decimal) -> Decimal {
 
 func prestigePreview(_ earned: Decimal) -> String {
     let coins = prestigeCoresFor(earned)
-    let first = coins > 0
-        ? "Pivot now for +\(coins) VC Billions (+\(NSDecimalNumber(decimal: Decimal(coins) * 10).stringValue)% production)"
-        : "\(formatHash(max(0, GameRules.prestigeThreshold - earned))) Tokens this run needed for the first VC Billion"
-    return first + "\n\(formatHash(max(0, nextPrestigeThreshold(earned) - earned))) Tokens this run needed for the next VC Billion"
+    if coins == 0 {
+        return "\(formatHash(max(0, GameRules.prestigeThreshold - earned))) run Tokens to your first VC Billion"
+    }
+    return "Pivot now: +\(coins) VC Billions (+\(NSDecimalNumber(decimal: Decimal(coins) * 10).stringValue)%)\n" +
+        "Next VC Billion in \(formatHash(max(0, nextPrestigeThreshold(earned) - earned))) run Tokens"
 }
 
 func accrue(rate: Decimal, seconds: Int, boostedSeconds: Int) -> Decimal {
