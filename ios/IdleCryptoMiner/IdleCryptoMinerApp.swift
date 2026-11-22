@@ -34,7 +34,33 @@ struct OwnedHardware: Identifiable, Hashable {
     }
 
     var currentRate: Decimal {
-        tier.baseRate * Decimal(count)
+        tier.baseRate * Decimal(count) * milestoneMultiplier(count)
+    }
+
+    func bulkCost(_ quantity: Int) -> Decimal {
+        guard quantity > 0 else { return 0 }
+        let growth = powDecimal(GameRules.costGrowth, quantity)
+        guard !growth.isNaN else { return .nan }
+        return currentCost * (growth - 1) / (GameRules.costGrowth - 1)
+    }
+
+    func maxAffordable(_ balance: Decimal) -> Int {
+        var low = 0
+        let limit = Int.max - count
+        var high = min(1, limit)
+        func affordable(_ n: Int) -> Bool {
+            let cost = bulkCost(n)
+            return !cost.isNaN && cost <= balance
+        }
+        while high < limit && affordable(high) {
+            low = high
+            high = high > limit / 2 ? limit : high * 2
+        }
+        while low < high {
+            let mid = low + (high - low) / 2 + (high - low) % 2
+            if affordable(mid) { low = mid } else { high = mid - 1 }
+        }
+        return low
     }
 }
 
@@ -162,10 +188,12 @@ final class GameStore: ObservableObject {
     }
 
     @discardableResult
-    func buy(_ hardware: OwnedHardware) -> Bool {
-        guard hash >= hardware.currentCost else { return false }
-        hash -= hardware.currentCost
-        counts[hardware.id, default: 0] += 1
+    func buy(_ hardware: OwnedHardware, quantity: Int = 1) -> Bool {
+        let current = OwnedHardware(tier: hardware.tier, count: counts[hardware.id, default: 0])
+        let cost = current.bulkCost(quantity)
+        guard quantity > 0, quantity <= Int.max - current.count, !cost.isNaN, hash >= cost else { return false }
+        hash -= cost
+        counts[hardware.id, default: 0] += quantity
         save()
         return true
     }
@@ -446,20 +474,38 @@ struct GameView: View {
             .buttonStyle(FilledTerminalButtonStyle(color: .forkCyan, disabled: store.pendingCores == 0))
             .disabled(store.pendingCores == 0)
             .accessibilityIdentifier("fundingRound")
+            Text(prestigePreview(store.runEarned))
+                .font(.caption.monospaced())
+                .accessibilityIdentifier("fundingPreview")
         }
     }
+
+    @State private var bulk = 1
 
     private var hardwareShop: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("MODEL SHOP")
                 .font(.headline.monospaced())
 
+            Picker("Buy quantity", selection: $bulk) {
+                Text("x1").tag(1).accessibilityIdentifier("bulk.1")
+                Text("x10").tag(10).accessibilityIdentifier("bulk.10")
+                Text("x100").tag(100).accessibilityIdentifier("bulk.100")
+                Text("Max").tag(0).accessibilityIdentifier("bulk.0")
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("bulkSelector")
+
             ForEach(store.ownedHardware) { hardware in
+                let quantity = bulk == 0 ? hardware.maxAffordable(store.hash) : bulk
+                let cost = hardware.bulkCost(max(1, quantity))
                 HardwareRow(
                     hardware: hardware,
-                    canAfford: store.hash >= hardware.currentCost
+                    canAfford: quantity > 0 && !cost.isNaN && store.hash >= cost,
+                    cost: cost,
+                    buyLabel: bulk == 0 ? "Max (\(quantity)) " : ""
                 ) {
-                    if store.buy(hardware) {
+                    if store.buy(hardware, quantity: quantity) {
                         feedback(.light, muted: store.effectsMuted)
                     }
                 }
@@ -523,6 +569,8 @@ struct FanButton: View {
 struct HardwareRow: View {
     let hardware: OwnedHardware
     let canAfford: Bool
+    let cost: Decimal
+    let buyLabel: String
     let onBuy: () -> Void
 
     var body: some View {
@@ -538,11 +586,16 @@ struct HardwareRow: View {
                     Text("Owned: \(hardware.count)")
                         .font(.caption.monospaced())
                         .foregroundStyle(Color.terminalGreen)
+                    let progress = milestoneProgress(hardware.count)
+                    Text("\(hardware.count)/\(progress.next) · next x\(progress.factor) · x\(formatHash(milestoneMultiplier(hardware.count)))")
+                        .font(.caption.monospaced())
+                    ProgressView(value: Double(hardware.count - progress.previous), total: Double(progress.next - progress.previous))
+                        .accessibilityIdentifier("milestone.\(hardware.id)")
                 }
 
                 Spacer()
 
-                Text(formatHash(hardware.currentCost))
+                Text(buyLabel + formatHash(cost))
                     .font(.body.monospaced().bold())
                     .foregroundStyle(canAfford ? Color.terminalGreen : Color.red)
             }
@@ -556,7 +609,7 @@ struct HardwareRow: View {
         }
         .buttonStyle(.plain)
         .disabled(!canAfford)
-        .accessibilityLabel("\(hardware.name), cost \(formatHash(hardware.currentCost)), owned \(hardware.count)")
+        .accessibilityLabel("\(hardware.name), cost \(formatHash(cost)), owned \(hardware.count)")
         .accessibilityIdentifier("model.\(hardware.id)")
     }
 }
@@ -638,9 +691,42 @@ func d(_ value: String) -> Decimal {
 
 func powDecimal(_ base: Decimal, _ exponent: Int) -> Decimal {
     guard exponent > 0 else { return 1 }
-    return (0..<exponent).reduce(Decimal(1)) { result, _ in
-        result * base
+    var power = exponent
+    var factor = base
+    var result: Decimal = 1
+    while power > 0 {
+        if power % 2 == 1 { result *= factor }
+        power /= 2
+        if power > 0 { factor *= factor }
+        if result.isNaN || factor.isNaN { return .nan }
     }
+    return result
+}
+
+func milestoneProgress(_ count: Int) -> (previous: Int, next: Int, factor: Int) {
+    if count < 10 { return (0, 10, 2) }
+    if count < 25 { return (10, 25, 2) }
+    if count < 50 { return (25, 50, 2) }
+    if count < 100 { return (50, 100, 3) }
+    return (count / 100 * 100, (count / 100 + 1) * 100, 3)
+}
+
+func milestoneMultiplier(_ count: Int) -> Decimal {
+    let doubles = [10, 25, 50].filter { count >= $0 }.count
+    return powDecimal(2, doubles) * powDecimal(3, count / 100)
+}
+
+func nextPrestigeThreshold(_ earned: Decimal) -> Decimal {
+    let next = Decimal(prestigeCoresFor(earned)) + 1
+    return next * next * GameRules.prestigeThreshold
+}
+
+func prestigePreview(_ earned: Decimal) -> String {
+    let coins = prestigeCoresFor(earned)
+    let first = coins > 0
+        ? "Pivot now for +\(coins) VC Billions (+\(NSDecimalNumber(decimal: Decimal(coins) * 10).stringValue)% production)"
+        : "\(formatHash(max(0, GameRules.prestigeThreshold - earned))) Tokens this run needed for the first VC Billion"
+    return first + "\n\(formatHash(max(0, nextPrestigeThreshold(earned) - earned))) Tokens this run needed for the next VC Billion"
 }
 
 func accrue(rate: Decimal, seconds: Int, boostedSeconds: Int) -> Decimal {
@@ -659,10 +745,14 @@ func boostedSeconds(from start: Date, to end: Date, boostEnd: Date) -> Int {
 
 func prestigeCoresFor(_ earned: Decimal) -> Int {
     guard earned >= GameRules.prestigeThreshold else { return 0 }
-    let ratio = NSDecimalNumber(decimal: earned / GameRules.prestigeThreshold).doubleValue
-    guard ratio.isFinite, ratio >= 1 else { return 0 }
-    let cores = floor(sqrt(ratio))
-    return cores >= Double(Int.max) ? Int.max : max(0, Int(cores))
+    var low = 0
+    var high = Int.max
+    while low < high {
+        let mid = low + (high - low) / 2 + (high - low) % 2
+        let threshold = Decimal(mid) * Decimal(mid) * GameRules.prestigeThreshold
+        if threshold <= earned { low = mid } else { high = mid - 1 }
+    }
+    return low
 }
 
 func formatHash(_ value: Decimal) -> String {

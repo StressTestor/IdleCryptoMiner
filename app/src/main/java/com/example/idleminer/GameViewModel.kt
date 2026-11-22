@@ -179,14 +179,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         addHash(tapValue(passiveRate(_upgrades.value), prestigeMult(), boosted))
     }
 
-    fun buyUpgrade(upgradeId: String) {
+    fun buyUpgrade(upgradeId: String, quantity: Int = 1) {
         val list = _upgrades.value.toMutableList()
         val index = list.indexOfFirst { it.id == upgradeId }
         if (index != -1) {
             val upgrade = list[index]
-            if (_hash.value >= upgrade.currentCost) {
-                _hash.value = _hash.value.subtract(upgrade.currentCost, MC)
-                list[index] = upgrade.copy(count = upgrade.count + 1)
+            if (quantity > 0 && quantity <= Int.MAX_VALUE - upgrade.count && _hash.value >= upgrade.bulkCost(quantity)) {
+                _hash.value = _hash.value.subtract(upgrade.bulkCost(quantity), MC)
+                list[index] = upgrade.copy(count = upgrade.count + quantity)
                 _upgrades.value = list
                 saveGame()
             }

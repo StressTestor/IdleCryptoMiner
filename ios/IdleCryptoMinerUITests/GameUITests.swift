@@ -28,6 +28,24 @@ final class GameUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts["tokenBalance"].label, "1 TOKENS")
     }
 
+    func testBulkBuyAndPreview() {
+        launch(seed: true)
+        XCTAssertTrue(app.staticTexts["fundingPreview"].label.contains("Pivot now for +1 VC Billions (+10% production)"))
+        let selector = app.segmentedControls["bulkSelector"]
+        reveal(selector)
+        selector.buttons["x10"].tap()
+        let row = app.buttons["model.cpu"]
+        reveal(row)
+        row.tap()
+        XCTAssertTrue(row.label.contains("owned 10"))
+        reveal(selector)
+        selector.buttons["Max"].tap()
+        reveal(row)
+        row.tap()
+        let owned = Int(row.label.components(separatedBy: "owned ").last ?? "") ?? 0
+        XCTAssertGreaterThan(owned, 11)
+    }
+
     func testBuyModelAndOfflineRelaunch() {
         launch(seed: true)
         let row = app.buttons["model.gpu1"]

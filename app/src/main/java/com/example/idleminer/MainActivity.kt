@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -332,6 +333,15 @@ fun GameScreen(viewModel: GameViewModel) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        Text(prestigePreview(runEarned), color = ForkCyan, modifier = Modifier.testTag("fundingPreview"))
+        var bulk by remember { mutableStateOf(1) }
+        Row {
+            listOf(1, 10, 100, 0).forEach { amount ->
+                TextButton(onClick = { bulk = amount }, modifier = Modifier.testTag("bulk.$amount")) {
+                    Text(if (amount == 0) "Max" else "x$amount", color = if (bulk == amount) NeonGreen else Color.Gray)
+                }
+            }
+        }
         // Shop
         Text("MODEL SHOP", fontSize = 20.sp, color = NeonGreen, modifier = Modifier.align(Alignment.Start))
         Spacer(modifier = Modifier.height(8.dp))
@@ -341,9 +351,12 @@ fun GameScreen(viewModel: GameViewModel) {
             modifier = Modifier.fillMaxWidth()
         ) {
             upgrades.forEach { upgrade ->
-                UpgradeItem(upgrade = upgrade, canAfford = hash >= upgrade.currentCost) {
+                val quantity = if (bulk == 0) upgrade.maxAffordable(hash) else bulk
+                val cost = upgrade.bulkCost(quantity.coerceAtLeast(1))
+                UpgradeItem(upgrade = upgrade, canAfford = quantity > 0 && hash >= cost, cost = cost,
+                    label = if (bulk == 0) "Max ($quantity) " else "") {
                     sound.buy()
-                    viewModel.buyUpgrade(upgrade.id)
+                    viewModel.buyUpgrade(upgrade.id, quantity)
                 }
             }
         }
@@ -408,17 +421,18 @@ fun FanButton(onClick: () -> Unit) {
 }
 
 @Composable
-fun UpgradeItem(upgrade: Upgrade, canAfford: Boolean, onBuy: () -> Unit) {
+fun UpgradeItem(upgrade: Upgrade, canAfford: Boolean, cost: Big = upgrade.currentCost, label: String = "", onBuy: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("model.${upgrade.id}")
             .alpha(if (canAfford) 1f else 0.45f) // non-color affordability cue
             .background(Color(0xFF101010), RoundedCornerShape(8.dp))
             .clickable(enabled = canAfford, onClick = onBuy)
             .semantics {
                 contentDescription = "${upgrade.name}, " +
                     (if (canAfford) "affordable" else "locked") +
-                    ", cost ${formatBig(upgrade.currentCost)}, owned ${upgrade.count}"
+                    ", cost ${formatBig(cost)}, owned ${upgrade.count}"
             }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -428,10 +442,13 @@ fun UpgradeItem(upgrade: Upgrade, canAfford: Boolean, onBuy: () -> Unit) {
             Text(upgrade.name, color = Color.White, fontWeight = FontWeight.Bold)
             Text("+${formatBig(upgrade.baseRate)} Tokens/sec", color = Color.Gray, fontSize = 12.sp)
             Text("Owned: ${upgrade.count}", color = NeonGreen, fontSize = 12.sp)
+            val progress = milestoneProgress(upgrade.count)
+            Text("${upgrade.count}/${progress.next} · next x${progress.factor} · x${formatBig(milestoneMultiplier(upgrade.count))}", color = NeonGreen, fontSize = 12.sp)
+            LinearProgressIndicator(progress = { (upgrade.count - progress.previous).toFloat() / (progress.next - progress.previous) }, modifier = Modifier.width(160.dp).testTag("milestone.${upgrade.id}"))
         }
 
         Text(
-            text = formatBig(upgrade.currentCost),
+            text = label + formatBig(cost),
             color = if (canAfford) NeonGreen else ErrorRed,
             fontWeight = FontWeight.Bold
         )
