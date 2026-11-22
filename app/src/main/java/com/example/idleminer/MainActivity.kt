@@ -19,12 +19,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -149,9 +146,9 @@ fun GameScreen(viewModel: GameViewModel) {
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("RESET PROGRESS") }
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Idle Crypto Miner v$version", color = Color.Gray, fontSize = 12.sp)
+                    Text("Idle AI Bubble v$version", color = Color.Gray, fontSize = 12.sp)
                     Text(
-                        "Simulation game. Not real cryptocurrency mining or money.",
+                        "Simulation game. No real AI was harmed. Not affiliated with any actual AI company. No backend, real money, or gambling.",
                         color = Color.Gray,
                         fontSize = 11.sp,
                     )
@@ -173,7 +170,7 @@ fun GameScreen(viewModel: GameViewModel) {
         AlertDialog(
             onDismissRequest = { showResetConfirm = false },
             title = { Text("RESET PROGRESS") },
-            text = { Text("This wipes all hash, hardware, and prestige cores. This cannot be undone.") },
+            text = { Text("This wipes all tokens, models, and VC Billions. This cannot be undone.") },
             confirmButton = {
                 Button(
                     onClick = { viewModel.resetProgress(); showResetConfirm = false },
@@ -195,11 +192,11 @@ fun GameScreen(viewModel: GameViewModel) {
     if (showPrestigeDialog) {
         AlertDialog(
             onDismissRequest = { showPrestigeDialog = false },
-            title = { Text("HARD FORK") },
+            title = { Text("FUNDING ROUND") },
             text = {
                 Text(
-                    "Reset hash and hardware to bank $pendingCores core(s).\n\n" +
-                        "Cores are permanent and each adds +10% to all production. " +
+                    "Reset tokens and models to bank $pendingCores VC Billions.\n\n" +
+                        "VC Billions are permanent and each adds +10% to all production. " +
                         "Your multiplier becomes x" +
                         prestigeMultiplier(prestigeCoins + pendingCores)
                             .setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() + "."
@@ -209,7 +206,7 @@ fun GameScreen(viewModel: GameViewModel) {
                 Button(
                     onClick = { viewModel.prestige(); sound.fork(); showPrestigeDialog = false },
                     colors = ButtonDefaults.buttonColors(containerColor = NeonGreen, contentColor = Color.Black)
-                ) { Text("FORK") }
+                ) { Text("PIVOT TO AGI") }
             },
             dismissButton = {
                 Button(
@@ -227,7 +224,7 @@ fun GameScreen(viewModel: GameViewModel) {
         AlertDialog(
             onDismissRequest = { viewModel.clearOfflineEarnings() },
             title = { Text("OFFLINE EARNINGS") },
-            text = { Text("You mined ${formatBig(offlineEarnings)} Hash while offline.") },
+            text = { Text("You generated ${formatBig(offlineEarnings)} Tokens while offline.") },
             confirmButton = {
                 Button(
                     onClick = { viewModel.clearOfflineEarnings() },
@@ -253,7 +250,7 @@ fun GameScreen(viewModel: GameViewModel) {
     ) {
         // Header
         Text(
-            text = "${formatBig(hash)} HASH",
+            text = "${formatBig(hash)} TOKENS",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
             color = NeonGreen
@@ -261,14 +258,14 @@ fun GameScreen(viewModel: GameViewModel) {
 
         val rate = passiveRate(upgrades)
         Text(
-            text = "+${formatBig(rate)}/sec",
+            text = "+${formatBig(rate)} Tokens/sec",
             fontSize = 16.sp,
             color = Color.Gray
         )
 
         if (prestigeCoins > 0) {
             Text(
-                text = "FORK x${multiplier.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()} ($prestigeCoins cores)",
+                text = "VC x${multiplier.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()} ($prestigeCoins VC Billions)",
                 fontSize = 14.sp,
                 color = ForkCyan
             )
@@ -285,7 +282,7 @@ fun GameScreen(viewModel: GameViewModel) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Overclock: free, cooldown-gated boost (no ad). State derived from now.
+        // Hype Cycle: free, cooldown-gated boost (no ad). State derived from now.
         val boostActiveLeft = (boostEndTime - now) / 1000
         val cooldownLeft = (boostEndTime + BOOST_COOLDOWN_MS - now) / 1000
         val isBoostActive = boostActiveLeft > 0
@@ -307,16 +304,16 @@ fun GameScreen(viewModel: GameViewModel) {
         ) {
             Text(
                 when {
-                    isBoostActive -> "OVERCLOCK ACTIVE: ${boostActiveLeft}s"
+                    isBoostActive -> "HYPE CYCLE ACTIVE: ${boostActiveLeft}s"
                     onCooldown -> "COOLDOWN: ${cooldownLeft}s"
-                    else -> "OVERCLOCK (2x FOR 5 MIN)"
+                    else -> "HYPE CYCLE (2x FOR 5 MIN)"
                 }
             )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Prestige (Hard Fork)
+        // Prestige (Funding Round)
         val canFork = pendingCores >= 1
         Button(
             onClick = { if (canFork) showPrestigeDialog = true },
@@ -330,13 +327,13 @@ fun GameScreen(viewModel: GameViewModel) {
             modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(8.dp)
         ) {
-            Text(if (canFork) "HARD FORK (+$pendingCores CORES)" else "HARD FORK (LOCKED)")
+            Text(if (canFork) "FUNDING ROUND (+$pendingCores)" else "FUNDING ROUND (LOCKED)")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // Shop
-        Text("HARDWARE SHOP", fontSize = 20.sp, color = NeonGreen, modifier = Modifier.align(Alignment.Start))
+        Text("MODEL SHOP", fontSize = 20.sp, color = NeonGreen, modifier = Modifier.align(Alignment.Start))
         Spacer(modifier = Modifier.height(8.dp))
         
         Column(
@@ -362,16 +359,12 @@ fun GameScreen(viewModel: GameViewModel) {
 @Composable
 fun FanButton(onClick: () -> Unit) {
     var isSpinning by remember { mutableStateOf(false) }
-    val rotation = remember { Animatable(0f) }
     val interactionSource = remember { MutableInteractionSource() }
     val scale by animateFloatAsState(if (isSpinning) 0.95f else 1f, label = "scale")
 
     LaunchedEffect(isSpinning) {
         if (isSpinning) {
-            rotation.animateTo(
-                targetValue = rotation.value + 360f,
-                animationSpec = tween(durationMillis = 500, easing = LinearEasing)
-            )
+            delay(500)
             isSpinning = false
         }
     }
@@ -382,50 +375,35 @@ fun FanButton(onClick: () -> Unit) {
             .size(200.dp)
             .scale(scale)
             .semantics {
-                contentDescription = "Mine hash"
+                contentDescription = "Prompt"
                 role = Role.Button
             }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClickLabel = "mine",
+                onClickLabel = "tap to prompt",
             ) {
                 onClick()
                 isSpinning = true
             }
     ) {
-        // Draw Fan
-        Canvas(modifier = Modifier.fillMaxSize().rotate(rotation.value)) {
-            drawCircle(
-                color = Color(0xFF202020),
-                style = Stroke(width = 4.dp.toPx())
-            )
-            drawCircle(
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawRoundRect(
                 color = NeonGreen,
-                radius = size.minDimension / 2 - 10f,
-                style = Stroke(width = 2.dp.toPx())
+                topLeft = androidx.compose.ui.geometry.Offset(12.dp.toPx(), 30.dp.toPx()),
+                size = androidx.compose.ui.geometry.Size(size.width - 24.dp.toPx(), size.height - 60.dp.toPx()),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx()),
+                style = Stroke(width = 3.dp.toPx())
             )
-            
-            // Blades
-            val center = center
-            val radius = size.minDimension / 2 - 20f
-            for (i in 0 until 3) {
-                val angle = i * 120f
-                rotate(degrees = angle, pivot = center) {
-                    drawPath(
-                        path = Path().apply {
-                            moveTo(center.x, center.y)
-                            lineTo(center.x + 20f, center.y - radius)
-                            lineTo(center.x - 20f, center.y - radius)
-                            close()
-                        },
-                        color = Color(0xFF303030)
-                    )
-                }
-            }
+            drawLine(
+                color = NeonGreen,
+                start = androidx.compose.ui.geometry.Offset(45.dp.toPx(), 170.dp.toPx()),
+                end = androidx.compose.ui.geometry.Offset(30.dp.toPx(), 185.dp.toPx()),
+                strokeWidth = 3.dp.toPx()
+            )
         }
         
-        Text("GPU", color = Color.Gray, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Prompt", color = Color.Gray, fontSize = 24.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -448,7 +426,7 @@ fun UpgradeItem(upgrade: Upgrade, canAfford: Boolean, onBuy: () -> Unit) {
     ) {
         Column {
             Text(upgrade.name, color = Color.White, fontWeight = FontWeight.Bold)
-            Text("+${formatBig(upgrade.baseRate)}/sec", color = Color.Gray, fontSize = 12.sp)
+            Text("+${formatBig(upgrade.baseRate)} Tokens/sec", color = Color.Gray, fontSize = 12.sp)
             Text("Owned: ${upgrade.count}", color = NeonGreen, fontSize = 12.sp)
         }
 

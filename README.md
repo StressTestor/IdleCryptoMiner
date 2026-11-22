@@ -1,19 +1,19 @@
-# IdleCryptoMiner
+# Idle AI Bubble
 
-Offline idle/clicker crypto-mining simulation game.
+Offline idle/clicker AI-boom parody simulation game.
 
 The Android app lives in `app/`. The native iPhone/App Store scaffold lives in
 `ios/`.
 
 ## Game loop
 
-- tap the GPU fan to mine Hash
-- buy hardware tiers for passive Hash/sec
-- trigger a free 2x Overclock boost with cooldown
-- Hard Fork to reset the run and bank permanent production cores
+- tap the Prompt button to generate Tokens
+- train parody model tiers for passive Tokens/sec
+- trigger a free 2x Hype Cycle boost with cooldown
+- Funding Round to reset the run and bank permanent VC Billions
 - progress persists locally, with capped offline earnings
 
-No backend. No real cryptocurrency mining. No real money. No gambling.
+No backend. No real AI was harmed. Not affiliated with any actual AI company. No real money. No gambling.
 
 ## Android
 

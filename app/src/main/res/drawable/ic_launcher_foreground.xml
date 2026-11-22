@@ -3,9 +3,6 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- neon "#" (hash) glyph, kept inside the adaptive-icon safe zone -->
-    <path android:fillColor="#00FF00" android:pathData="M45.5,40 h5 v28 h-5 z" />
-    <path android:fillColor="#00FF00" android:pathData="M57.5,40 h5 v28 h-5 z" />
-    <path android:fillColor="#00FF00" android:pathData="M40,46.5 h28 v5 h-28 z" />
-    <path android:fillColor="#00FF00" android:pathData="M40,56.5 h28 v5 h-28 z" />
+    <path android:fillColor="#00FF00" android:pathData="M38,38 h32 v26 h-18 l-12,9 v-9 h-2 z M42,42 v18 h2 v5 l7,-5 h15 v-18 z" android:fillType="evenOdd" />
+    <path android:fillColor="#00FF00" android:pathData="M45,48 h18 v3 h-18 z M45,54 h12 v3 h-12 z" />
 </vector>

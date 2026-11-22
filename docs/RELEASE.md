@@ -1,6 +1,6 @@
-# release & signing
+# Idle AI Bubble release & signing
 
-how IdleCryptoMiner gets from source to a signed artifact. read this before the
+how Idle AI Bubble gets from source to a signed artifact. read this before the
 first Play upload - the keystore decision is permanent.
 
 ## app identity

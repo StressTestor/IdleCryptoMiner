@@ -40,14 +40,14 @@ struct OwnedHardware: Identifiable, Hashable {
 
 enum GameRules {
     static let hardware: [HardwareTier] = [
-        HardwareTier(id: "cpu", name: "CPU Miner", baseCost: d("10"), baseRate: d("0.1")),
-        HardwareTier(id: "gpu1", name: "GTX 1050", baseCost: d("120"), baseRate: d("1.5")),
-        HardwareTier(id: "gpu2", name: "RTX 4090", baseCost: d("1500"), baseRate: d("24")),
-        HardwareTier(id: "asic", name: "ASIC Miner", baseCost: d("18000"), baseRate: d("360")),
-        HardwareTier(id: "rig", name: "Mining Rig", baseCost: d("220000"), baseRate: d("5500")),
-        HardwareTier(id: "rack", name: "Server Rack", baseCost: d("2600000"), baseRate: d("83000")),
-        HardwareTier(id: "datacenter", name: "Data Center", baseCost: d("32000000"), baseRate: d("1300000")),
-        HardwareTier(id: "quantum", name: "Quantum Miner", baseCost: d("400000000"), baseRate: d("20000000"))
+        HardwareTier(id: "cpu", name: "ChatGTP-2", baseCost: d("10"), baseRate: d("0.1")),
+        HardwareTier(id: "gpu1", name: "Lame-a 3 8B", baseCost: d("120"), baseRate: d("1.5")),
+        HardwareTier(id: "gpu2", name: "Mistrial Medium", baseCost: d("1500"), baseRate: d("24")),
+        HardwareTier(id: "asic", name: "Jeminai Ultra", baseCost: d("18000"), baseRate: d("360")),
+        HardwareTier(id: "rig", name: "Clawd Opus", baseCost: d("220000"), baseRate: d("5500")),
+        HardwareTier(id: "rack", name: "DeepSeekr R1", baseCost: d("2600000"), baseRate: d("83000")),
+        HardwareTier(id: "datacenter", name: "Grock 4 Heavy", baseCost: d("32000000"), baseRate: d("1300000")),
+        HardwareTier(id: "quantum", name: "GPT-∞ (Totally AGI)", baseCost: d("400000000"), baseRate: d("20000000"))
     ]
 
     static let costGrowth = d("1.15")
@@ -332,18 +332,18 @@ struct GameView: View {
                 store.clearOfflineEarnings()
             }
         } message: {
-            Text("You mined \(formatHash(store.offlineEarnings)) Hash while away.")
+            Text("You generated \(formatHash(store.offlineEarnings)) Tokens while away.")
         }
-        .alert("HARD FORK", isPresented: $showForkConfirm) {
+        .alert("FUNDING ROUND", isPresented: $showForkConfirm) {
             Button("CANCEL", role: .cancel) {}
-            Button("FORK") {
+            Button("PIVOT TO AGI") {
                 feedback(.heavy, muted: store.effectsMuted)
                 _ = store.prestige()
             }
         } message: {
             let next = Decimal(store.prestigeCores + store.pendingCores)
             let nextMultiplier = Decimal(1) + (next * GameRules.coreBonus)
-            Text("Reset hash and hardware to bank \(store.pendingCores) core(s). Cores are permanent. New multiplier: x\(formatMultiplier(nextMultiplier)).")
+            Text("Reset tokens and models to bank \(store.pendingCores) VC Billions. VC Billions are permanent. New multiplier: x\(formatMultiplier(nextMultiplier)).")
         }
     }
 
@@ -362,10 +362,10 @@ struct GameView: View {
         VStack(spacing: 8) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("IDLE CRYPTO MINER")
+                    Text("IDLE AI BUBBLE")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
-                    Text("\(formatHash(store.hash)) HASH")
+                    Text("\(formatHash(store.hash)) TOKENS")
                         .font(.system(size: 34, weight: .bold, design: .monospaced))
                         .minimumScaleFactor(0.6)
                 }
@@ -373,9 +373,9 @@ struct GameView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text("+\(formatHash(store.effectiveRate))/sec")
+                    Text("+\(formatHash(store.effectiveRate)) Tokens/sec")
                         .font(.callout.monospaced())
-                    Text("\(store.prestigeCores) cores")
+                    Text("\(store.prestigeCores) VC Billions")
                         .font(.caption.monospaced())
                         .foregroundStyle(Color.forkCyan)
                 }
@@ -383,7 +383,7 @@ struct GameView: View {
 
             if store.prestigeCores > 0 {
                 HStack {
-                    Text("FORK MULTIPLIER")
+                    Text("VC MULTIPLIER")
                     Spacer()
                     Text("x\(formatMultiplier(store.prestigeMultiplier))")
                 }
@@ -415,7 +415,7 @@ struct GameView: View {
             Button {
                 showForkConfirm = true
             } label: {
-                Text(store.pendingCores > 0 ? "HARD FORK (+\(store.pendingCores) CORES)" : "HARD FORK (LOCKED)")
+                Text(store.pendingCores > 0 ? "FUNDING ROUND (+\(store.pendingCores))" : "FUNDING ROUND (LOCKED)")
                     .font(.headline.monospaced())
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
@@ -427,7 +427,7 @@ struct GameView: View {
 
     private var hardwareShop: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("HARDWARE SHOP")
+            Text("MODEL SHOP")
                 .font(.headline.monospaced())
 
             ForEach(store.ownedHardware) { hardware in
@@ -445,25 +445,21 @@ struct GameView: View {
 
     private func boostTitle(active: Bool, cooldown: Int) -> String {
         if active {
-            return "OVERCLOCK ACTIVE: \(store.boostRemaining(at: now))s"
+            return "HYPE CYCLE ACTIVE: \(store.boostRemaining(at: now))s"
         }
         if cooldown > 0 {
             return "COOLDOWN: \(cooldown)s"
         }
-        return "OVERCLOCK (2x FOR 5 MIN)"
+        return "HYPE CYCLE (2x FOR 5 MIN)"
     }
 }
 
 struct FanButton: View {
     let onTap: () -> Void
-    @State private var rotation = 0.0
     @State private var pressed = false
 
     var body: some View {
         Button {
-            withAnimation(.linear(duration: 0.38)) {
-                rotation += 360
-            }
             withAnimation(.easeOut(duration: 0.1)) {
                 pressed = true
             }
@@ -482,21 +478,10 @@ struct FanButton: View {
                     .stroke(Color.terminalGreen, lineWidth: 2)
                     .padding(14)
 
-                ZStack {
-                    ForEach(0..<3, id: \.self) { index in
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.panelBright)
-                            .frame(width: 34, height: 92)
-                            .offset(y: -42)
-                            .rotationEffect(.degrees(Double(index) * 120))
-                    }
-                }
-                .rotationEffect(.degrees(rotation))
-
-                Circle()
-                    .fill(Color.minerBackground)
-                    .frame(width: 78, height: 78)
-                Text("GPU")
+                Image(systemName: "bubble.left")
+                    .font(.system(size: 145, weight: .ultraLight))
+                    .foregroundStyle(Color.terminalGreen)
+                Text("Prompt")
                     .font(.title2.monospaced().bold())
                     .foregroundStyle(.secondary)
             }
@@ -505,8 +490,8 @@ struct FanButton: View {
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Mine hash")
-        .accessibilityHint("Taps the GPU fan to mine hash")
+        .accessibilityLabel("Prompt")
+        .accessibilityHint("Tap to prompt")
     }
 }
 
@@ -522,7 +507,7 @@ struct HardwareRow: View {
                     Text(hardware.name)
                         .font(.body.monospaced().weight(.semibold))
                         .foregroundStyle(.white)
-                    Text("+\(formatHash(hardware.baseRate))/sec each")
+                    Text("+\(formatHash(hardware.baseRate)) Tokens/sec each")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                     Text("Owned: \(hardware.count)")
@@ -575,7 +560,7 @@ struct SettingsView: View {
                 }
 
                 Section("Disclosure") {
-                    Text("Simulation game. Not real cryptocurrency mining, money, investing, gambling, or financial advice.")
+                    Text("Simulation game. No real AI was harmed. Not affiliated with any actual AI company. No backend, real money, investing, gambling, or financial advice.")
                         .font(.footnote)
                 }
             }
@@ -594,7 +579,7 @@ struct SettingsView: View {
                     dismiss()
                 }
             } message: {
-                Text("This wipes hash, hardware, and prestige cores. It cannot be undone.")
+                Text("This wipes tokens, models, and VC Billions. It cannot be undone.")
             }
         }
     }

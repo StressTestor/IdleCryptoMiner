@@ -1,10 +1,10 @@
-# architecture
+# Idle AI Bubble architecture
 
 ## overview
 
-IdleCryptoMiner is a single-screen Android idle/clicker game. you tap a GPU fan to
-mine "hash", spend hash on 8 tiers of hardware that mine passively, trigger a free
-cooldown-gated 2x "overclock" boost, and "hard fork" (prestige) for a permanent
+Idle AI Bubble is a single-screen Android idle/clicker game. you tap a Prompt button to
+generate "Tokens", spend Tokens on 8 parody models that generate passively, trigger a free
+cooldown-gated 2x "Hype Cycle" boost, and "Funding Round" (prestige) for a permanent
 global multiplier. progress persists locally and accrues capped offline earnings
 while the app is closed.
 
@@ -57,7 +57,7 @@ lives on-device in DataStore. ad-free in v1 (the `AdManager` seam is kept for v1
         │   │   └── raw/              # sfx_tap/buy/fork.wav
         │   └── java/com/example/idleminer/
         │       ├── IdleMinerApp.kt   # Application: uncaught-exception logger
-        │       ├── MainActivity.kt   # all Compose UI: theme, screen, fan, shop, dialogs, settings
+        │       ├── MainActivity.kt   # all Compose UI: theme, screen, prompt, shop, dialogs, settings
         │       ├── GameViewModel.kt  # state, loop, persistence, prestige, settings
         │       ├── Economy.kt        # PURE: Big economy, accrue, prestige, formatBig (tested)
         │       ├── SaveData.kt       # PURE: versioned crash-proof parse/serialize (tested)
@@ -87,8 +87,8 @@ lives on-device in DataStore. ad-free in v1 (the `AdManager` seam is kept for v1
   `SystemClock.elapsedRealtime()` elapsed (immune to loop drift and clock
   changes), carrying the sub-second remainder. offline earnings use wall-clock
   delta, capped at 8h, ignoring backward clock jumps, boost-overlap aware.
-- **prestige loop**: cores = `floor(sqrt(runEarned / 1e6))`; each core = +10% to
-  all production permanently; `prestige()` banks cores and wipes the run.
+- **prestige loop**: VC Billions = `floor(sqrt(runEarned / 1e6))`; each VC Billion = +10% to
+  all production permanently; `prestige()` banks VC Billions and wipes the run.
 - **persistence**: DataStore preferences, versioned + crash-proof load (a
   corrupt/legacy save can't crash the app). debounced save (~20s) in the loop +
   on buy/boost/pause/clear. `resetProgress()` uses `clear()` so no key survives.
@@ -101,12 +101,12 @@ lives on-device in DataStore. ad-free in v1 (the `AdManager` seam is kept for v1
 | key | type | meaning |
 |-----|------|---------|
 | `save_version` | Int | save format version (migrate hook) |
-| `hash` | String | current hash balance (BigDecimal) |
+| `hash` | String | current token balance (BigDecimal) |
 | `upgrades` | String | `"cpu:3,gpu1:1,..."` id:count pairs |
 | `last_save` | Long | epoch millis of last save (offline earnings) |
-| `boost_end` | Long | epoch millis the overclock boost ends |
-| `run_earned` | String | hash earned since last prestige (BigDecimal) |
-| `prestige_coins` | Long | owned prestige cores |
+| `boost_end` | Long | epoch millis the Hype Cycle boost ends |
+| `run_earned` | String | tokens earned since last prestige (BigDecimal) |
+| `prestige_coins` | Long | owned VC Billions |
 | `muted` | Boolean | sound setting |
 
 ## ci

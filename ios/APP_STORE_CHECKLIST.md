@@ -1,8 +1,8 @@
-# App Store checklist
+# Idle AI Bubble App Store checklist
 
 ## App identity
 
-- Name: Idle Crypto Miner
+- Name: Idle AI Bubble
 - Bundle ID: `io.github.stresstestor.idlecryptominer`
 - SKU suggestion: `idlecryptominer-ios`
 - Primary category: Games
@@ -26,8 +26,8 @@
 Suggested review note:
 
 ```text
-Idle Crypto Miner is an offline idle/clicker simulation game. It does not mine
-real cryptocurrency, handle money, offer gambling, connect to a backend, use ads,
+Idle AI Bubble is an offline idle/clicker simulation game. No real AI was harmed. Not affiliated with any actual AI company.
+It does not handle money, offer gambling, connect to a backend, use ads,
 or include in-app purchases. All progress is stored locally on the device and can
 be reset from Settings.
 ```

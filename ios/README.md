@@ -1,4 +1,4 @@
-# IdleCryptoMiner for iPhone
+# Idle AI Bubble for iPhone
 
 Native SwiftUI iPhone build of the same offline idle/clicker game as the Android
 app.
@@ -6,10 +6,10 @@ app.
 ## What is included
 
 - single-screen SwiftUI game UI
-- tap-to-mine GPU fan
-- eight passive hardware tiers
-- free 2x Overclock boost with cooldown
-- Hard Fork prestige cores
+- tap-to-prompt chat button
+- eight passive parody model tiers
+- free 2x Hype Cycle boost with cooldown
+- Funding Round VC Billions
 - offline earnings capped at 8 hours
 - local-only save data via `UserDefaults`
 - reset progress and sound/haptics toggle
@@ -55,5 +55,5 @@ xcodebuild \
 Then open the archive in Xcode Organizer and use Distribute App -> App Store
 Connect.
 
-The app has no network code, no ads, no IAP, and no real crypto/mining behavior.
+The app has no network code, no ads, no IAP, and no real money or gambling. No real AI was harmed. Not affiliated with any actual AI company.
 The App Store listing and review notes should say that plainly.
