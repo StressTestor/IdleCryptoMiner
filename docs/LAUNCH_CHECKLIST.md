@@ -1,4 +1,4 @@
-# launch checklist
+# AI Bubble launch checklist
 
 everything between "the code is done" and "live on Google Play production".
 the code/CI items (M0-M4) are done; the rest need you (account, money, real
@@ -11,7 +11,7 @@ humans, hosted pages, Play Console forms). grouped by who/what.
       tag-triggered CI job that uploads the `.aab` + `mapping.txt`
 - [x] no INTERNET permission; `allowBackup=false` (save stays on device)
 - [x] adaptive launcher icon + 512 store icon (`store-assets/ic_launcher-512.png`)
-- [x] in-app "simulation, not real mining/money" disclaimer (settings)
+- [x] in-app "No real AI was harmed. Not affiliated with any actual AI company." disclaimer (settings)
 - [x] lightweight crash logging + mapping upload for Play Vitals deobfuscation
 - [x] reset-progress (full data wipe) for the data-deletion answer
 
@@ -45,8 +45,8 @@ humans, hosted pages, Play Console forms). grouped by who/what.
       collected or sent)
 - [ ] Data Safety form: no data collected/shared; data deletion = uninstall +
       in-app reset-progress (consistent with `allowBackup=false`)
-- [ ] content rating questionnaire - answer deliberately for the crypto theme
-      (it's a clicker: no real money, no real mining, no gambling)
+- [ ] content rating questionnaire - answer deliberately for the AI parody theme
+      (it's a clicker: no real money, no gambling)
 - [ ] target audience / families declaration (general / 13+, not child-directed)
 - [ ] store listing: title, short + full description, the 512 icon,
       1024x500 feature graphic, 2-3 phone screenshots
@@ -61,4 +61,4 @@ humans, hosted pages, Play Console forms). grouped by who/what.
 - full UI-string externalization to `strings.xml` for i18n - the app is
   English-only for v1, so inline strings are fine; externalize when adding a
   second language
-- achievements, events, the themed-crypto-sim (market/heat/pools)
+- achievements, events, AI parody features (benchmarks/GPU meltdowns/AGI pivots)
