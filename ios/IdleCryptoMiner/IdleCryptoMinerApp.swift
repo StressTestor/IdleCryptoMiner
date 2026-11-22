@@ -362,7 +362,7 @@ struct GameView: View {
         VStack(spacing: 8) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("IDLE AI BUBBLE")
+                    Text("AI BUBBLE")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                     Text("\(formatHash(store.hash)) TOKENS")

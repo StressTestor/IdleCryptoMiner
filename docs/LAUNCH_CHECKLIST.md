@@ -1,4 +1,4 @@
-# Idle AI Bubble launch checklist
+# AI Bubble launch checklist
 
 everything between "the code is done" and "live on Google Play production".
 the code/CI items (M0-M4) are done; the rest need you (account, money, real

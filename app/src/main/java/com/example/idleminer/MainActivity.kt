@@ -146,7 +146,7 @@ fun GameScreen(viewModel: GameViewModel) {
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("RESET PROGRESS") }
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Idle AI Bubble v$version", color = Color.Gray, fontSize = 12.sp)
+                    Text("AI Bubble v$version", color = Color.Gray, fontSize = 12.sp)
                     Text(
                         "Simulation game. No real AI was harmed. Not affiliated with any actual AI company. No backend, real money, or gambling.",
                         color = Color.Gray,

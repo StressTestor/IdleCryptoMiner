@@ -1,4 +1,4 @@
-# Idle AI Bubble
+# AI Bubble
 
 Offline idle/clicker AI-boom parody simulation game.
 

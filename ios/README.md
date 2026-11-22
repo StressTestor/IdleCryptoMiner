@@ -1,4 +1,4 @@
-# Idle AI Bubble for iPhone
+# AI Bubble for iPhone
 
 Native SwiftUI iPhone build of the same offline idle/clicker game as the Android
 app.

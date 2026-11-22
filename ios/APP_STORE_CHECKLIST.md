@@ -1,8 +1,8 @@
-# Idle AI Bubble App Store checklist
+# AI Bubble App Store checklist
 
 ## App identity
 
-- Name: Idle AI Bubble
+- Name: AI Bubble
 - Bundle ID: `io.github.stresstestor.idlecryptominer`
 - SKU suggestion: `idlecryptominer-ios`
 - Primary category: Games
@@ -26,7 +26,7 @@
 Suggested review note:
 
 ```text
-Idle AI Bubble is an offline idle/clicker simulation game. No real AI was harmed. Not affiliated with any actual AI company.
+AI Bubble is an offline idle/clicker simulation game. No real AI was harmed. Not affiliated with any actual AI company.
 It does not handle money, offer gambling, connect to a backend, use ads,
 or include in-app purchases. All progress is stored locally on the device and can
 be reset from Settings.

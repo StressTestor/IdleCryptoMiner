@@ -1,8 +1,8 @@
-# Idle AI Bubble architecture
+# AI Bubble architecture
 
 ## overview
 
-Idle AI Bubble is a single-screen Android idle/clicker game. you tap a Prompt button to
+AI Bubble is a single-screen Android idle/clicker game. you tap a Prompt button to
 generate "Tokens", spend Tokens on 8 parody models that generate passively, trigger a free
 cooldown-gated 2x "Hype Cycle" boost, and "Funding Round" (prestige) for a permanent
 global multiplier. progress persists locally and accrues capped offline earnings
