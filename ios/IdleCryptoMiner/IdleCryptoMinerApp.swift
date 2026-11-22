@@ -90,6 +90,24 @@ final class GameStore: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--uitesting") {
+            if arguments.contains("--fresh-save") { defaults.removeObject(forKey: saveKey) }
+            if arguments.contains("--seed-save") {
+                let seed = SaveGame(version: 1, hash: 1000000, counts: [:], runEarned: 1000000,
+                                    prestigeCores: 0, boostEnd: 0, lastSave: Date().timeIntervalSince1970,
+                                    effectsMuted: true)
+                defaults.set(try? JSONEncoder().encode(seed), forKey: saveKey)
+            }
+            if arguments.contains("--offline-save"),
+               let data = defaults.data(forKey: saveKey),
+               var state = try? JSONDecoder().decode(SaveGame.self, from: data) {
+                state.lastSave -= 120
+                defaults.set(try? JSONEncoder().encode(state), forKey: saveKey)
+            }
+        }
+        #endif
         load()
     }
 
@@ -309,6 +327,7 @@ struct GameView: View {
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)
                 }
+                .accessibilityIdentifier("settings")
             }
             .padding(16)
         }
@@ -332,7 +351,7 @@ struct GameView: View {
                 store.clearOfflineEarnings()
             }
         } message: {
-            Text("You generated \(formatHash(store.offlineEarnings)) Tokens while away.")
+            Text("You generated \(formatHash(store.offlineEarnings)) Tokens while offline.")
         }
         .alert("FUNDING ROUND", isPresented: $showForkConfirm) {
             Button("CANCEL", role: .cancel) {}
@@ -343,7 +362,7 @@ struct GameView: View {
         } message: {
             let next = Decimal(store.prestigeCores + store.pendingCores)
             let nextMultiplier = Decimal(1) + (next * GameRules.coreBonus)
-            Text("Reset tokens and models to bank \(store.pendingCores) VC Billions. VC Billions are permanent. New multiplier: x\(formatMultiplier(nextMultiplier)).")
+            Text("Reset tokens and models to bank \(store.pendingCores) VC Billions.\n\nVC Billions are permanent and each adds +10% to all production. Your multiplier becomes x\(formatMultiplier(nextMultiplier)).")
         }
     }
 
@@ -366,6 +385,7 @@ struct GameView: View {
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                     Text("\(formatHash(store.hash)) TOKENS")
+                        .accessibilityIdentifier("tokenBalance")
                         .font(.system(size: 34, weight: .bold, design: .monospaced))
                         .minimumScaleFactor(0.6)
                 }
@@ -373,9 +393,11 @@ struct GameView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text("+\(formatHash(store.effectiveRate)) Tokens/sec")
+                    Text("+\(formatHash(store.passiveRate)) Tokens/sec")
+                        .accessibilityIdentifier("productionRate")
                         .font(.callout.monospaced())
                     Text("\(store.prestigeCores) VC Billions")
+                        .accessibilityIdentifier("vcBillions")
                         .font(.caption.monospaced())
                         .foregroundStyle(Color.forkCyan)
                 }
@@ -411,6 +433,7 @@ struct GameView: View {
             }
             .buttonStyle(FilledTerminalButtonStyle(color: .terminalGreen, disabled: boostActive || cooldown > 0))
             .disabled(boostActive || cooldown > 0)
+            .accessibilityIdentifier("hypeCycle")
 
             Button {
                 showForkConfirm = true
@@ -422,6 +445,7 @@ struct GameView: View {
             }
             .buttonStyle(FilledTerminalButtonStyle(color: .forkCyan, disabled: store.pendingCores == 0))
             .disabled(store.pendingCores == 0)
+            .accessibilityIdentifier("fundingRound")
         }
     }
 
@@ -491,6 +515,7 @@ struct FanButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Prompt")
+        .accessibilityIdentifier("prompt")
         .accessibilityHint("Tap to prompt")
     }
 }
@@ -507,7 +532,7 @@ struct HardwareRow: View {
                     Text(hardware.name)
                         .font(.body.monospaced().weight(.semibold))
                         .foregroundStyle(.white)
-                    Text("+\(formatHash(hardware.baseRate)) Tokens/sec each")
+                    Text("+\(formatHash(hardware.baseRate)) Tokens/sec")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                     Text("Owned: \(hardware.count)")
@@ -532,6 +557,7 @@ struct HardwareRow: View {
         .buttonStyle(.plain)
         .disabled(!canAfford)
         .accessibilityLabel("\(hardware.name), cost \(formatHash(hardware.currentCost)), owned \(hardware.count)")
+        .accessibilityIdentifier("model.\(hardware.id)")
     }
 }
 
@@ -557,6 +583,7 @@ struct SettingsView: View {
                     Button("Reset Progress", role: .destructive) {
                         confirmReset = true
                     }
+                    .accessibilityIdentifier("resetProgress")
                 }
 
                 Section("Disclosure") {
@@ -634,7 +661,8 @@ func prestigeCoresFor(_ earned: Decimal) -> Int {
     guard earned >= GameRules.prestigeThreshold else { return 0 }
     let ratio = NSDecimalNumber(decimal: earned / GameRules.prestigeThreshold).doubleValue
     guard ratio.isFinite, ratio >= 1 else { return 0 }
-    return min(Int.max, max(0, Int(floor(sqrt(ratio)))))
+    let cores = floor(sqrt(ratio))
+    return cores >= Double(Int.max) ? Int.max : max(0, Int(cores))
 }
 
 func formatHash(_ value: Decimal) -> String {
@@ -645,20 +673,30 @@ func formatHash(_ value: Decimal) -> String {
     }
 
     let suffixes = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"]
-    var scaled = double
+    var scaled = value
     var group = 0
     while scaled >= 1_000, group < suffixes.count - 1 {
         scaled /= 1_000
         group += 1
     }
 
-    if group < suffixes.count - 1 {
-        return String(format: "%.2f%@", scaled, suffixes[group])
+    var exponent = 0
+    var magnitude = value
+    while magnitude >= 10 {
+        magnitude /= 10
+        exponent += 1
     }
-
-    let exponent = Int(floor(log10(double)))
-    let mantissa = double / pow(10, Double(exponent))
-    return String(format: "%.2fe%d", mantissa, exponent)
+    let scientific = exponent >= suffixes.count * 3
+    var mantissa = value / powDecimal(10, scientific ? exponent : group * 3)
+    var rounded = Decimal()
+    NSDecimalRound(&rounded, &mantissa, 2, .down)
+    let formatter = NumberFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.minimumFractionDigits = 2
+    formatter.maximumFractionDigits = 2
+    formatter.usesGroupingSeparator = false
+    let text = formatter.string(from: NSDecimalNumber(decimal: rounded)) ?? "0.00"
+    return text + (scientific ? "e\(exponent)" : suffixes[group])
 }
 
 func formatMultiplier(_ value: Decimal) -> String {

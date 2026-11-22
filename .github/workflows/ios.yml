@@ -22,12 +22,26 @@ jobs:
         bash scripts/generate_app_icons.sh
         xcodegen generate
 
-    - name: Build iOS simulator app
+    - name: Test iOS simulator app
+      run: |
+        DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for ds in json.load(sys.stdin)["devices"].values() for d in ds if d["name"] == "iPhone 17"))')
+        xcodebuild test -project ios/IdleCryptoMiner.xcodeproj \
+          -scheme IdleCryptoMiner -destination "platform=iOS Simulator,id=$DEVICE" -parallel-testing-enabled NO \
+          -resultBundlePath ios/TestResults.xcresult CODE_SIGNING_ALLOWED=NO
+
+    - name: Build and zip iOS simulator app
       run: |
         xcodebuild \
           -project ios/IdleCryptoMiner.xcodeproj \
           -scheme IdleCryptoMiner \
           -sdk iphonesimulator \
           -destination 'generic/platform=iOS Simulator' \
+          -derivedDataPath ios/build \
           CODE_SIGNING_ALLOWED=NO \
           build
+        ditto -c -k --sequesterRsrc --keepParent ios/build/Build/Products/Debug-iphonesimulator/IdleCryptoMiner.app ios/AI-Bubble-Simulator.zip
+
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: AI-Bubble-Simulator
+        path: ios/AI-Bubble-Simulator.zip
