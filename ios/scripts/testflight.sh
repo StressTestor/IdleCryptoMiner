@@ -22,7 +22,12 @@ trap 'rm -rf "$KEY_DIR"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 KEY_PATH="$KEY_DIR/AuthKey.p8"
-printf '%s\n' "$APP_STORE_CONNECT_API_KEY_P8" > "$KEY_PATH"
+# Rebuild the PEM so keys stored on one line (spaces instead of newlines) still parse.
+printf '%s' "$APP_STORE_CONNECT_API_KEY_P8" | python3 -c '
+import re, sys, textwrap
+body = re.sub(r"-----[^-]+-----|\\n|\s", "", sys.stdin.read())
+print("-----BEGIN PRIVATE KEY-----", *textwrap.wrap(body, 64), "-----END PRIVATE KEY-----", sep="\n")
+' > "$KEY_PATH"
 unset APP_STORE_CONNECT_API_KEY_P8
 
 cd "$IOS_DIR"
