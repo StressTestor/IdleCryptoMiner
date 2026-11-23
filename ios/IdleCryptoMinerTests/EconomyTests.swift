@@ -2,6 +2,48 @@ import XCTest
 @testable import IdleCryptoMiner
 
 final class EconomyTests: XCTestCase {
+    func testBulkMilestonesAndPreview() {
+        let model = OwnedHardware(tier: GameRules.hardware[0], count: 0)
+        XCTAssertEqual(model.bulkCost(0), 0)
+        XCTAssertEqual(model.bulkCost(2), d("21.5"))
+        XCTAssertEqual(model.maxAffordable(9), 0)
+        for n in [1, 10, 100, 1000] {
+            let cost = model.bulkCost(n)
+            XCTAssertEqual(model.maxAffordable(cost), n)
+            XCTAssertEqual(model.maxAffordable(cost * d("0.999999")), n - 1)
+        }
+        let huge = d("1e120")
+        let n = model.maxAffordable(huge)
+        XCTAssertGreaterThan(n, 100)
+        XCTAssertLessThanOrEqual(model.bulkCost(n), huge)
+        XCTAssertTrue(model.bulkCost(n + 1).isNaN || model.bulkCost(n + 1) > huge)
+        for (count, multiplier) in [(0, 1), (10, 2), (25, 4), (50, 8), (100, 24), (200, 72), (500, 1944)] {
+            XCTAssertEqual(milestoneMultiplier(count), Decimal(multiplier))
+            let progress = milestoneProgress(count)
+            XCTAssertLessThanOrEqual(progress.previous, count)
+            XCTAssertGreaterThan(progress.next, count)
+        }
+        XCTAssertEqual(milestoneProgress(12).next, 25)
+        XCTAssertEqual(nextPrestigeThreshold(1000000), 4000000)
+        XCTAssertEqual(prestigePreview(1000000), "Pivot now: +1 VC Billions (+10%)\nNext VC Billion in 3.00M run Tokens")
+        XCTAssertEqual(prestigePreview(0), "1.00M run Tokens to your first VC Billion")
+        XCTAssertEqual(prestigePreview(999999), "1 run Tokens to your first VC Billion")
+    }
+
+    @MainActor
+    func testOldFormatSave() {
+        let suite = "EconomyTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let json = """
+        {"version":1,"hash":123,"counts":{"cpu":12},"runEarned":456,"prestigeCores":2,"boostEnd":0,"lastSave":0,"effectsMuted":true}
+        """
+        defaults.set(Data(json.utf8), forKey: "idleCryptoMiner.save.v1")
+        let store = GameStore(defaults: defaults)
+        XCTAssertEqual(store.counts["cpu"], 12)
+        XCTAssertEqual(store.prestigeCores, 2)
+    }
+
     func testCostGrowth() {
         let tier = GameRules.hardware[0]
         XCTAssertEqual(OwnedHardware(tier: tier, count: 0).currentCost, 10)

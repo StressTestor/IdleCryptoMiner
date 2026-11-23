@@ -28,6 +28,33 @@ final class GameUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts["tokenBalance"].label, "1 TOKENS")
     }
 
+    func testBulkBuyAndPreview() {
+        launch(seed: true)
+        XCTAssertEqual(app.staticTexts["fundingPreview"].label, "Pivot now: +1 VC Billions (+10%)\nNext VC Billion in 3.00M run Tokens")
+        let selector = app.segmentedControls["bulkSelector"]
+        reveal(selector)
+        selector.buttons["x10"].tap()
+        let row = app.buttons["model.cpu"]
+        reveal(row)
+        row.tap()
+        XCTAssertTrue(row.label.contains("owned 10"))
+        XCTAssertEqual(row.value as? String, "10/25, next x2, multiplier x2")
+        reveal(selector)
+        selector.buttons["Max"].tap()
+        reveal(row)
+        XCTAssertTrue(row.label.contains("Max quantity "))
+        row.tap()
+        let owned = Int(row.label.components(separatedBy: "owned ").last ?? "") ?? 0
+        XCTAssertGreaterThan(owned, 11)
+        XCTAssertTrue(row.label.contains("Max quantity 0"))
+        XCTAssertFalse(row.isEnabled)
+    }
+
+    func testFreshFundingPreview() {
+        launch()
+        XCTAssertEqual(app.staticTexts["fundingPreview"].label, "1.00M run Tokens to your first VC Billion")
+    }
+
     func testBuyModelAndOfflineRelaunch() {
         launch(seed: true)
         let row = app.buttons["model.gpu1"]

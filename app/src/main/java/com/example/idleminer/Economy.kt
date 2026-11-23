@@ -48,11 +48,60 @@ data class Upgrade(
     val currentCost: Big get() = baseCost.multiply(COST_GROWTH.pow(count, MC), MC)
 
     /** Hash/sec contributed by all owned units of this tier. */
-    val currentRate: Big get() = baseRate.multiply(big(count.toLong()), MC)
+    val currentRate: Big get() = baseRate.multiply(big(count.toLong()), MC).multiply(milestoneMultiplier(count), MC)
+
+    fun bulkCost(quantity: Int): Big {
+        require(quantity >= 0)
+        if (quantity == 0) return BigDecimal.ZERO
+        return currentCost.multiply(COST_GROWTH.pow(quantity, MC).subtract(BigDecimal.ONE), MC)
+            .divide(COST_GROWTH.subtract(BigDecimal.ONE), MC)
+    }
+
+    fun maxAffordable(balance: Big): Int {
+        var low = 0
+        val limit = Int.MAX_VALUE - count
+        var high = minOf(1, limit)
+        while (high < limit && bulkCost(high) <= balance) {
+            low = high
+            high = (high.toLong() * 2).coerceAtMost(limit.toLong()).toInt()
+        }
+        while (low < high) {
+            val mid = low + ((high.toLong() - low + 1) / 2).toInt()
+            if (bulkCost(mid) <= balance) low = mid else high = mid - 1
+        }
+        return low
+    }
 
     companion object {
         val COST_GROWTH: Big = BigDecimal("1.15")
     }
+}
+
+data class MilestoneProgress(val previous: Int, val next: Int, val factor: Int)
+
+fun milestoneProgress(count: Int): MilestoneProgress = when {
+    count < 10 -> MilestoneProgress(0, 10, 2)
+    count < 25 -> MilestoneProgress(10, 25, 2)
+    count < 50 -> MilestoneProgress(25, 50, 2)
+    count < 100 -> MilestoneProgress(50, 100, 3)
+    else -> MilestoneProgress(count / 100 * 100, (count / 100 + 1) * 100, 3)
+}
+
+fun milestoneMultiplier(count: Int): Big {
+    val doubles = listOf(10, 25, 50).count { count >= it }
+    return big(2).pow(doubles, MC).multiply(big(3).pow(count / 100, MC), MC)
+}
+
+fun nextPrestigeThreshold(earned: Big): Big {
+    val next = big(prestigeCoinsFor(earned)).add(BigDecimal.ONE)
+    return next.multiply(next).multiply(big(PRESTIGE_THRESHOLD))
+}
+
+fun prestigePreview(earned: Big): String {
+    val coins = prestigeCoinsFor(earned)
+    if (coins == 0L) return "${formatBig(big(PRESTIGE_THRESHOLD).subtract(earned).max(BigDecimal.ZERO))} run Tokens to your first VC Billion"
+    return "Pivot now: +$coins VC Billions (+${big(coins).multiply(big(10)).toPlainString()}%)\n" +
+        "Next VC Billion in ${formatBig(nextPrestigeThreshold(earned).subtract(earned).max(BigDecimal.ZERO))} run Tokens"
 }
 
 /** Total passive hash/sec across all upgrades. */
