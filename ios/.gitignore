@@ -1,0 +1,5 @@
+IdleCryptoMiner.xcodeproj/
+build/
+*.xcresult/
+AI-Bubble-Simulator.zip
+IdleCryptoMiner/Assets.xcassets/AppIcon.appiconset/*.png

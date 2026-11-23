@@ -27,8 +27,38 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: AI Bubble
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.games
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_USER_SCRIPT_SANDBOXING: YES
+  IdleCryptoMinerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [IdleCryptoMinerTests]
+    dependencies:
+      - target: IdleCryptoMiner
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.stresstestor.idlecryptominer.tests
+  IdleCryptoMinerUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [IdleCryptoMinerUITests]
+    dependencies:
+      - target: IdleCryptoMiner
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.stresstestor.idlecryptominer.uitests
+schemes:
+  IdleCryptoMiner:
+    build:
+      targets:
+        IdleCryptoMiner: all
+    test:
+      targets:
+        - IdleCryptoMinerTests
+        - IdleCryptoMinerUITests
